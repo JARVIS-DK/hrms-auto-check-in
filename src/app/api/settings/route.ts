@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { getSettingsCollection, insertSettings } from "@/lib/models/settings";
 import { encrypt } from "@/lib/crypto";
+import { hrmsLogin } from "@/lib/hrms/client";
 
 export async function GET() {
   try {
@@ -74,6 +75,11 @@ export async function PUT(req: NextRequest) {
     };
 
     if (hrmsPassword) {
+      try {
+        await hrmsLogin(update.hrmsEmail as string, hrmsPassword);
+      } catch {
+        return NextResponse.json({ error: "Invalid HRMS credentials. Login failed." }, { status: 422 });
+      }
       const { encrypted, iv, tag } = encrypt(hrmsPassword);
       update.hrmsPasswordEncrypted = encrypted;
       update.hrmsPasswordIv = iv;

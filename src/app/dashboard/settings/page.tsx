@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/ui/Toast";
+import TimeInput from "@/components/ui/TimeInput";
 
 export default function SettingsPage() {
   const [hrmsEmail, setHrmsEmail] = useState("");
@@ -15,8 +17,8 @@ export default function SettingsPage() {
   const [skipSunday, setSkipSunday] = useState(true);
   const [hasPassword, setHasPassword] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
   const [locating, setLocating] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetch("/api/settings")
@@ -35,10 +37,43 @@ export default function SettingsPage() {
       });
   }, []);
 
+  function getDefaultTimes() {
+    const now = new Date();
+    const start = new Date(now.getTime() - 60000);
+    const end = new Date(now.getTime() + 30 * 60000);
+    const fmt = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return { start: fmt(start), end: fmt(end) };
+  }
+
+  function handleCheckinStartFocus() {
+    if (!checkinStart) {
+      const { start, end } = getDefaultTimes();
+      setCheckinStart(start);
+      if (!checkinEnd) setCheckinEnd(end);
+    }
+  }
+
+  function handleCheckoutStartFocus() {
+    if (!checkoutStart) {
+      const { start, end } = getDefaultTimes();
+      setCheckoutStart(start);
+      if (!checkoutEnd) setCheckoutEnd(end);
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+
+    if (checkinStart && checkinEnd && checkinStart >= checkinEnd) {
+      toast("Check-in start time must be before end time", "error");
+      return;
+    }
+    if (checkoutStart && checkoutEnd && checkoutStart >= checkoutEnd) {
+      toast("Check-out start time must be before end time", "error");
+      return;
+    }
+
     setSaving(true);
-    setMessage("");
 
     const body: Record<string, unknown> = {
       hrmsEmail,
@@ -53,51 +88,55 @@ export default function SettingsPage() {
     };
     if (hrmsPassword) body.hrmsPassword = hrmsPassword;
 
-    const res = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    if (res.ok) {
-      setMessage("Settings saved!");
-      setHasPassword(true);
-      setHrmsPassword("");
-    } else {
-      setMessage("Failed to save settings");
+      if (res.ok) {
+        toast("Settings saved successfully!", "success");
+        setHasPassword(true);
+        setHrmsPassword("");
+      } else {
+        const data = await res.json();
+        toast(data.error || "Failed to save settings", "error");
+      }
+    } catch {
+      toast("Network error", "error");
     }
     setSaving(false);
   }
 
   function useMyLocation() {
     if (!navigator.geolocation) {
-      setMessage("Geolocation is not supported by your browser");
+      toast("Geolocation is not supported by your browser", "error");
       return;
     }
 
     setLocating(true);
-    setMessage("");
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLatitude(pos.coords.latitude.toString());
         setLongitude(pos.coords.longitude.toString());
-        setMessage("Location captured successfully");
+        toast("Location captured successfully", "success");
         setLocating(false);
       },
       (err) => {
         switch (err.code) {
           case err.PERMISSION_DENIED:
-            setMessage("Location permission denied. Please allow location access in your browser.");
+            toast("Location permission denied", "error");
             break;
           case err.POSITION_UNAVAILABLE:
-            setMessage("Location unavailable. Try again or enter manually.");
+            toast("Location unavailable. Try again or enter manually.", "error");
             break;
           case err.TIMEOUT:
-            setMessage("Location request timed out. Try again.");
+            toast("Location request timed out. Try again.", "error");
             break;
           default:
-            setMessage("Could not get location. Please enter manually.");
+            toast("Could not get location", "error");
         }
         setLocating(false);
       },
@@ -110,185 +149,251 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-lg">
-      <h2 className="text-xl font-semibold mb-6">HRMS Settings</h2>
-      <form onSubmit={handleSave} className="space-y-5">
-        {/* Credentials */}
+    <div className="flex-1 flex justify-center">
+      <div className="w-full max-w-xl space-y-5">
+        {/* Header */}
         <div>
-          <label className="block text-sm font-medium mb-1">HRMS Email</label>
-          <input
-            type="email"
-            value={hrmsEmail}
-            onChange={(e) => setHrmsEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="you@company.com"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">
-            HRMS Password{" "}
-            {hasPassword && (
-              <span className="text-muted">(leave blank to keep current)</span>
-            )}
-          </label>
-          <input
-            type="password"
-            value={hrmsPassword}
-            onChange={(e) => setHrmsPassword(e.target.value)}
-            className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder={hasPassword ? "********" : "Enter password"}
-            required={!hasPassword}
-          />
+          <h2 className="text-lg font-bold">Settings</h2>
+          <p className="text-sm text-muted mt-0.5">Configure your HRMS credentials and scheduler preferences</p>
         </div>
 
-        {/* Location */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Latitude</label>
-            <input
-              type="text"
-              value={latitude}
-              onChange={(e) => setLatitude(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="11.0452..."
-              required
-            />
+        <form onSubmit={handleSave} className="space-y-5">
+          {/* Credentials */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              HRMS Credentials
+            </h3>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1.5">Email</label>
+              <input
+                type="email"
+                value={hrmsEmail}
+                onChange={(e) => setHrmsEmail(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                placeholder="you@company.com"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1.5">
+                Password{" "}
+                {hasPassword && (
+                  <span className="text-muted font-normal">(leave blank to keep current)</span>
+                )}
+              </label>
+              <input
+                type="password"
+                value={hrmsPassword}
+                onChange={(e) => setHrmsPassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                placeholder={hasPassword ? "••••••••" : "Enter password"}
+                required={!hasPassword}
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Longitude</label>
-            <input
-              type="text"
-              value={longitude}
-              onChange={(e) => setLongitude(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="76.9266..."
-              required
-            />
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={useMyLocation}
-          disabled={locating}
-          className="text-sm text-primary hover:underline disabled:opacity-50"
-        >
-          {locating ? "Getting location..." : "Use my current location"}
-        </button>
 
-        {/* Schedule Intervals */}
-        <div className="border-t border-border pt-5">
-          <h3 className="text-sm font-semibold mb-3">
-            Schedule Intervals{" "}
-            <span className="text-muted font-normal">(optional — defaults: check-in 09:30–10:00, check-out 18:00–18:45)</span>
-          </h3>
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">Check-in From</label>
-              <input
-                type="time"
-                value={checkinStart}
-                onChange={(e) => setCheckinStart(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">Check-in To</label>
-              <input
-                type="time"
-                value={checkinEnd}
-                onChange={(e) => setCheckinEnd(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">Check-out From</label>
-              <input
-                type="time"
-                value={checkoutStart}
-                onChange={(e) => setCheckoutStart(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">Check-out To</label>
-              <input
-                type="time"
-                value={checkoutEnd}
-                onChange={(e) => setCheckoutEnd(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
-          <p className="text-xs text-muted mt-2">
-            The scheduler will randomly pick a time within the interval. Leave blank to use defaults.
-          </p>
-        </div>
-
-        {/* Weekend Toggles */}
-        <div className="border-t border-border pt-5">
-          <h3 className="text-sm font-semibold mb-3">Skip Weekends</h3>
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
+          {/* Location */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+                Location
+              </h3>
               <button
                 type="button"
-                onClick={() => setSkipSaturday(!skipSaturday)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${
-                  skipSaturday ? "bg-primary" : "bg-gray-300"
-                }`}
+                onClick={useMyLocation}
+                disabled={locating}
+                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:opacity-50"
               >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                    skipSaturday ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
+                {locating ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    Locating...
+                  </span>
+                ) : (
+                  <>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+                    </svg>
+                    Use current location
+                  </>
+                )}
               </button>
-              <span className="text-sm">Skip Saturday</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <button
-                type="button"
-                onClick={() => setSkipSunday(!skipSunday)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${
-                  skipSunday ? "bg-primary" : "bg-gray-300"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                    skipSunday ? "translate-x-5" : "translate-x-0"
-                  }`}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1.5">Latitude</label>
+                <input
+                  type="text"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                  placeholder="11.0452..."
+                  required
                 />
-              </button>
-              <span className="text-sm">Skip Sunday</span>
-            </label>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1.5">Longitude</label>
+                <input
+                  type="text"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                  placeholder="76.9266..."
+                  required
+                />
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-muted mt-2">
-            Toggle off to allow scheduler to run on that day.
-          </p>
-        </div>
 
-        {message && (
-          <p
-            className={`text-sm ${
-              message.includes("saved") || message.includes("captured")
-                ? "text-success"
-                : "text-danger"
-            }`}
+          {/* Schedule Intervals */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Schedule Intervals
+              </h3>
+              {(checkinStart || checkinEnd || checkoutStart || checkoutEnd) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckinStart("");
+                    setCheckinEnd("");
+                    setCheckoutStart("");
+                    setCheckoutEnd("");
+                  }}
+                  className="px-2.5 py-1 text-xs font-medium text-danger border border-danger/30 rounded-lg hover:bg-danger/10 transition-colors"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-muted -mt-2">
+              Defaults: check-in 09:30–10:00, check-out 18:00–18:45
+            </p>
+
+            <div>
+              <label className="block text-xs font-medium text-muted mb-2">Check-in Window</label>
+              <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                <div>
+                  <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
+                  <TimeInput
+                    value={checkinStart}
+                    onChange={setCheckinStart}
+                    onFocus={handleCheckinStartFocus}
+                    onClear={() => setCheckinStart("")}
+                  />
+                </div>
+                <span className="text-muted text-xs mt-5">—</span>
+                <div>
+                  <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
+                  <TimeInput
+                    value={checkinEnd}
+                    onChange={setCheckinEnd}
+                    onClear={() => setCheckinEnd("")}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-muted mb-2">Check-out Window</label>
+              <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                <div>
+                  <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
+                  <TimeInput
+                    value={checkoutStart}
+                    onChange={setCheckoutStart}
+                    onFocus={handleCheckoutStartFocus}
+                    onClear={() => setCheckoutStart("")}
+                  />
+                </div>
+                <span className="text-muted text-xs mt-5">—</span>
+                <div>
+                  <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
+                  <TimeInput
+                    value={checkoutEnd}
+                    onChange={setCheckoutEnd}
+                    onClear={() => setCheckoutEnd("")}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted">
+              The scheduler randomly picks a time within each window. Leave blank for defaults.
+            </p>
+          </div>
+
+          {/* Weekend Toggles */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              Skip Days
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-background rounded-xl">
+                <span className="text-sm font-medium">Saturday</span>
+                <button
+                  type="button"
+                  onClick={() => setSkipSaturday(!skipSaturday)}
+                  className="relative w-11 h-6 rounded-full transition-colors"
+                  style={{ backgroundColor: skipSaturday ? "var(--primary)" : "var(--border)" }}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+                      skipSaturday ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-background rounded-xl">
+                <span className="text-sm font-medium">Sunday</span>
+                <button
+                  type="button"
+                  onClick={() => setSkipSunday(!skipSunday)}
+                  className="relative w-11 h-6 rounded-full transition-colors"
+                  style={{ backgroundColor: skipSunday ? "var(--primary)" : "var(--border)" }}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+                      skipSunday ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-muted">
+              Toggle off to allow the scheduler to run on that day.
+            </p>
+          </div>
+
+          {/* Save Button */}
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full py-3 text-white rounded-xl font-medium text-sm disabled:opacity-50 transition-all bg-primary hover:bg-primary-hover"
           >
-            {message}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary-hover disabled:opacity-50"
-        >
-          {saving ? "Saving..." : "Save Settings"}
-        </button>
-      </form>
+            {saving ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Validating & Saving...
+              </span>
+            ) : (
+              "Save Settings"
+            )}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
