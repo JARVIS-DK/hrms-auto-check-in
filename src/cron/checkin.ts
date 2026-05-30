@@ -108,6 +108,7 @@ export async function runCheckinJob() {
           executedAt: new Date(),
           skipReason: "already checked in",
         });
+        await sendFailureEmail(user.hrmsEmail, "CHECK_IN", "Skipped — you already checked in today (possibly manual).");
         console.log(`[CHECKIN] User ${user.hrmsEmail} — skipped (already in)`);
         continue;
       }

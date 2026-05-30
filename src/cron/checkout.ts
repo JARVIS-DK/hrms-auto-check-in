@@ -108,6 +108,7 @@ export async function runCheckoutJob() {
           executedAt: new Date(),
           skipReason: "already checked out",
         });
+        await sendFailureEmail(user.hrmsEmail, "CHECK_OUT", "Skipped — you already checked out today (possibly manual).");
         console.log(`[CHECKOUT] User ${user.hrmsEmail} — skipped (already out)`);
         continue;
       }
@@ -121,6 +122,7 @@ export async function runCheckoutJob() {
           executedAt: new Date(),
           skipReason: "never checked in today",
         });
+        await sendFailureEmail(user.hrmsEmail, "CHECK_OUT", "Skipped — no check-in found today, cannot check out.");
         console.log(`[CHECKOUT] User ${user.hrmsEmail} — skipped (no check-in today)`);
         continue;
       }
