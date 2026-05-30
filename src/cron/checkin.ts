@@ -3,6 +3,7 @@ import { getLeavesCollection } from "@/lib/models/leave";
 import { insertLog } from "@/lib/models/log";
 import { decrypt } from "@/lib/crypto";
 import { hrmsLogin, hrmsGetState, hrmsCheckin } from "@/lib/hrms/client";
+import { sendFailureEmail } from "@/lib/mail";
 import { todayIST, nowIST } from "@/lib/utils";
 import { format, getDay } from "date-fns";
 
@@ -123,6 +124,10 @@ export async function runCheckinJob() {
         errorMessage: result.success ? undefined : "HRMS returned failure",
       });
 
+      if (!result.success) {
+        await sendFailureEmail(user.hrmsEmail, "CHECK_IN", "HRMS returned failure");
+      }
+
       console.log(`[CHECKIN] User ${user.hrmsEmail} — ${result.success ? "SUCCESS" : "FAILED"} at ${result.time}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -134,6 +139,7 @@ export async function runCheckinJob() {
         executedAt: new Date(),
         errorMessage: message,
       });
+      await sendFailureEmail(user.hrmsEmail, "CHECK_IN", message);
       console.error(`[CHECKIN] User ${user.hrmsEmail} — ERROR: ${message}`);
     }
   }

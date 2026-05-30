@@ -102,7 +102,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 flex justify-center">
-      <div className="w-full max-w-2xl space-y-5">
+      <div className="w-full max-w-2xl 2xl:max-w-4xl space-y-5">
         {/* Automation Toggle Card */}
         <div className="rounded-2xl p-5 bg-card border border-border">
           <div className="flex items-center justify-between">

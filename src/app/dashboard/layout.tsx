@@ -90,7 +90,7 @@ export default function DashboardLayout({
 
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop sidebar */}
-        <nav className="hidden md:flex shrink-0 w-52 bg-card border-r border-border p-3 flex-col gap-0.5 overflow-y-auto">
+        <nav className="hidden md:flex shrink-0 w-52 2xl:w-60 bg-card border-r border-border p-3 flex-col gap-0.5 overflow-y-auto">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.href}
@@ -149,7 +149,7 @@ export default function DashboardLayout({
         )}
 
         {/* Main content */}
-        <main className="flex-1 p-4 md:p-6 bg-background overflow-y-auto">{children}</main>
+        <main className="flex-1 p-4 md:p-6 2xl:p-10 bg-background overflow-y-auto">{children}</main>
       </div>
     </div>
   );

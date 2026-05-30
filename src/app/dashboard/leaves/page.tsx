@@ -83,7 +83,7 @@ export default function LeavesPage() {
 
   return (
     <div className="flex-1 flex justify-center">
-      <div className="w-full max-w-xl space-y-5">
+      <div className="w-full max-w-xl 2xl:max-w-3xl space-y-5">
         {/* Header */}
         <div>
           <h2 className="text-lg font-bold">Leave Dates</h2>

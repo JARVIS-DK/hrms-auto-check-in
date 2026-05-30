@@ -39,7 +39,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex-1 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm 2xl:max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-primary/10">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
