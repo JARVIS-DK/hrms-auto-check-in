@@ -1,5 +1,6 @@
 import { getSettingsCollection } from "@/lib/models/settings";
 import { getLeavesCollection } from "@/lib/models/leave";
+import { getScheduledActionsCollection } from "@/lib/models/scheduled-action";
 import { insertLog } from "@/lib/models/log";
 import { decrypt } from "@/lib/crypto";
 import { hrmsLogin, hrmsGetState, hrmsCheckin } from "@/lib/hrms/client";
@@ -9,10 +10,6 @@ import { format, getDay } from "date-fns";
 
 const DEFAULT_START = "09:30";
 const DEFAULT_END = "10:00";
-
-// Track scheduled times per user per day so we only execute once
-const scheduledTimes = new Map<string, string>(); // "userId:date" -> "HH:MM"
-const executed = new Set<string>(); // "userId:date"
 
 function getRandomTimeInRange(start: string, end: string): string {
   const [sh, sm] = start.split(":").map(Number);
@@ -27,21 +24,16 @@ function getRandomTimeInRange(start: string, end: string): string {
 }
 
 export async function runCheckinJob() {
-
   const today = todayIST();
   const currentTime = format(nowIST(), "HH:mm");
 
   const settings = await getSettingsCollection();
   const activeUsers = await settings.find({ automationEnabled: true }).toArray();
+  const scheduled = await getScheduledActionsCollection();
 
   const dayOfWeek = getDay(nowIST()); // 0=Sun, 6=Sat
 
   for (const user of activeUsers) {
-    const key = `${user.userId}:${today}:checkin`;
-
-    // Already executed today
-    if (executed.has(key)) continue;
-
     // Skip Saturday/Sunday per user setting
     if (dayOfWeek === 6 && (user.skipSaturday ?? true)) continue;
     if (dayOfWeek === 0 && (user.skipSunday ?? true)) continue;
@@ -52,29 +44,59 @@ export async function runCheckinJob() {
     // Not yet in the window
     if (currentTime < start) continue;
 
+    // Check existing scheduled action for today
+    const existing = await scheduled.findOne({
+      userId: user.userId,
+      date: today,
+      action: "checkin",
+    });
+
+    // Already executed today
+    if (existing?.executed) continue;
+
     // Past the window — mark as missed
     if (currentTime > end) {
-      executed.add(key);
+      if (!existing) {
+        await scheduled.updateOne(
+          { userId: user.userId, date: today, action: "checkin" },
+          { $set: { targetTime: end, executed: true } },
+          { upsert: true }
+        );
+      } else {
+        await scheduled.updateOne(
+          { _id: existing._id },
+          { $set: { executed: true } }
+        );
+      }
       continue;
     }
 
     // Assign a random target time once per day
-    if (!scheduledTimes.has(key)) {
-      scheduledTimes.set(key, getRandomTimeInRange(start, end));
-      console.log(`[CHECKIN] User ${user.hrmsEmail} — scheduled at ${scheduledTimes.get(key)}`);
+    let targetTime: string;
+    if (!existing) {
+      targetTime = getRandomTimeInRange(start, end);
+      await scheduled.insertOne({
+        userId: user.userId,
+        date: today,
+        action: "checkin",
+        targetTime,
+        executed: false,
+      });
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — scheduled at ${targetTime}`);
+    } else {
+      targetTime = existing.targetTime;
     }
-
-    const targetTime = scheduledTimes.get(key)!;
 
     // Not yet time
     if (currentTime < targetTime) continue;
 
-    // Time to execute
-    executed.add(key);
-    scheduledTimes.delete(key);
+    // Mark as executed
+    await scheduled.updateOne(
+      { userId: user.userId, date: today, action: "checkin" },
+      { $set: { executed: true } }
+    );
 
     const leaves = await getLeavesCollection();
-
     const onLeave = await leaves.findOne({ userId: user.userId, date: today });
     if (onLeave) {
       await insertLog({
