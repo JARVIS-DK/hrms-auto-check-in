@@ -1,8 +1,14 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "HRMS Auto <onboarding@resend.dev>";
+const FROM_EMAIL = process.env.SMTP_FROM || process.env.SMTP_USER!;
 
 export async function sendFailureEmail(
   to: string,
@@ -13,7 +19,7 @@ export async function sendFailureEmail(
   const time = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
   try {
-    await resend.emails.send({
+    await transporter.sendMail({
       from: FROM_EMAIL,
       to,
       subject: `[HRMS] ${actionLabel} Failed`,
@@ -51,7 +57,7 @@ export async function sendLeaveNotificationEmail(
   });
 
   try {
-    await resend.emails.send({
+    await transporter.sendMail({
       from: FROM_EMAIL,
       to,
       subject: `[HRMS] On Leave Today — No Check-in/Out`,

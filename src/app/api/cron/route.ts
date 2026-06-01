@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { runCheckinJob } from "@/cron/checkin";
 import { runCheckoutJob } from "@/cron/checkout";
-import { runLeaveNotifyJob } from "@/cron/leave-notify";
 import { nowIST } from "@/lib/utils";
 import { format } from "date-fns";
 
@@ -18,7 +17,6 @@ export async function GET(request: Request) {
     await Promise.all([
       runCheckinJob(),
       runCheckoutJob(),
-      runLeaveNotifyJob(),
     ]);
 
     return NextResponse.json({ ok: true, time });

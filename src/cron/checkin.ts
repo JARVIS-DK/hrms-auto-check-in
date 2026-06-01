@@ -4,7 +4,7 @@ import { getScheduledActionsCollection } from "@/lib/models/scheduled-action";
 import { insertLog } from "@/lib/models/log";
 import { decrypt } from "@/lib/crypto";
 import { hrmsLogin, hrmsGetState, hrmsCheckin } from "@/lib/hrms/client";
-import { sendFailureEmail } from "@/lib/mail";
+import { sendFailureEmail, sendLeaveNotificationEmail } from "@/lib/mail";
 import { todayIST, nowIST } from "@/lib/utils";
 import { format, getDay } from "date-fns";
 
@@ -54,6 +54,28 @@ export async function runCheckinJob() {
     // Already executed today
     if (existing?.executed) continue;
 
+    // Check leave early — send notification and skip before scheduling
+    const leaves = await getLeavesCollection();
+    const onLeave = await leaves.findOne({ userId: user.userId, date: today });
+    if (onLeave) {
+      await scheduled.updateOne(
+        { userId: user.userId, date: today, action: "checkin" },
+        { $set: { targetTime: start, executed: true } },
+        { upsert: true }
+      );
+      await insertLog({
+        userId: user.userId,
+        action: "CHECK_IN",
+        status: "SKIPPED",
+        scheduledAt: new Date(),
+        executedAt: new Date(),
+        skipReason: "on leave",
+      });
+      await sendLeaveNotificationEmail(user.hrmsEmail, today, onLeave.reason);
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — on leave, notified`);
+      continue;
+    }
+
     // Past the window — mark as missed
     if (currentTime > end) {
       if (!existing) {
@@ -95,21 +117,6 @@ export async function runCheckinJob() {
       { userId: user.userId, date: today, action: "checkin" },
       { $set: { executed: true } }
     );
-
-    const leaves = await getLeavesCollection();
-    const onLeave = await leaves.findOne({ userId: user.userId, date: today });
-    if (onLeave) {
-      await insertLog({
-        userId: user.userId,
-        action: "CHECK_IN",
-        status: "SKIPPED",
-        scheduledAt: new Date(),
-        executedAt: new Date(),
-        skipReason: "on leave",
-      });
-      console.log(`[CHECKIN] User ${user.hrmsEmail} — skipped (on leave)`);
-      continue;
-    }
 
     try {
       const password = decrypt(
