@@ -24,25 +24,41 @@ function getRandomTimeInRange(start: string, end: string): string {
 }
 
 export async function runCheckinJob() {
+  console.log("[CHECKIN] ===== Starting checkin job =====");
   const today = todayIST();
   const currentTime = format(nowIST(), "HH:mm");
+  console.log(`[CHECKIN] Today: ${today}, Current time: ${currentTime}`);
 
   const settings = await getSettingsCollection();
   const activeUsers = await settings.find({ automationEnabled: true }).toArray();
+  console.log(`[CHECKIN] Found ${activeUsers.length} active users`);
   const scheduled = await getScheduledActionsCollection();
 
   const dayOfWeek = getDay(nowIST()); // 0=Sun, 6=Sat
+  console.log(`[CHECKIN] Day of week: ${dayOfWeek} (0=Sun, 6=Sat)`)
 
   for (const user of activeUsers) {
+    console.log(`[CHECKIN] Processing user: ${user.hrmsEmail}`);
+
     // Skip Saturday/Sunday per user setting
-    if (dayOfWeek === 6 && (user.skipSaturday ?? true)) continue;
-    if (dayOfWeek === 0 && (user.skipSunday ?? true)) continue;
+    if (dayOfWeek === 6 && (user.skipSaturday ?? true)) {
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — skipped (Saturday)`);
+      continue;
+    }
+    if (dayOfWeek === 0 && (user.skipSunday ?? true)) {
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — skipped (Sunday)`);
+      continue;
+    }
 
     const start = user.checkinStart || DEFAULT_START;
     const end = user.checkinEnd || DEFAULT_END;
+    console.log(`[CHECKIN] User ${user.hrmsEmail} — window: ${start} - ${end}`);
 
     // Not yet in the window
-    if (currentTime < start) continue;
+    if (currentTime < start) {
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — not yet in window (current: ${currentTime} < start: ${start})`);
+      continue;
+    }
 
     // Check existing scheduled action for today
     const existing = await scheduled.findOne({
@@ -50,13 +66,18 @@ export async function runCheckinJob() {
       date: today,
       action: "checkin",
     });
+    console.log(`[CHECKIN] User ${user.hrmsEmail} — existing scheduled action: ${existing ? `found (executed: ${existing.executed}, targetTime: ${existing.targetTime})` : 'none'}`);
 
     // Already executed today
-    if (existing?.executed) continue;
+    if (existing?.executed) {
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — already executed today`);
+      continue;
+    }
 
     // Check leave early — send notification and skip before scheduling
     const leaves = await getLeavesCollection();
     const onLeave = await leaves.findOne({ userId: user.userId, date: today });
+    console.log(`[CHECKIN] User ${user.hrmsEmail} — leave check: ${onLeave ? `on leave (${onLeave.reason})` : 'not on leave'}`);
     if (onLeave) {
       await scheduled.updateOne(
         { userId: user.userId, date: today, action: "checkin" },
@@ -78,6 +99,7 @@ export async function runCheckinJob() {
 
     // Past the window — mark as missed
     if (currentTime > end) {
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — past window (current: ${currentTime} > end: ${end}), marking as missed`);
       if (!existing) {
         await scheduled.updateOne(
           { userId: user.userId, date: today, action: "checkin" },
@@ -110,7 +132,12 @@ export async function runCheckinJob() {
     }
 
     // Not yet time
-    if (currentTime < targetTime) continue;
+    if (currentTime < targetTime) {
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — not yet time (current: ${currentTime} < target: ${targetTime})`);
+      continue;
+    }
+
+    console.log(`[CHECKIN] User ${user.hrmsEmail} — executing checkin now (current: ${currentTime}, target: ${targetTime})`);
 
     // Mark as executed
     await scheduled.updateOne(
@@ -119,14 +146,18 @@ export async function runCheckinJob() {
     );
 
     try {
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — decrypting password`);
       const password = decrypt(
         user.hrmsPasswordEncrypted,
         user.hrmsPasswordIv,
         user.hrmsPasswordTag
       );
 
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — logging into HRMS`);
       const session = await hrmsLogin(user.hrmsEmail, password);
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — fetching current state`);
       const state = await hrmsGetState(session);
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — current checkins: ${JSON.stringify(state.checkins)}`);
 
       if (state.checkins.some((c) => c.log_type === "IN")) {
         await insertLog({
@@ -142,7 +173,9 @@ export async function runCheckinJob() {
         continue;
       }
 
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — calling hrmsCheckin with lat: ${user.latitude}, lng: ${user.longitude}`);
       const result = await hrmsCheckin(session, user.latitude, user.longitude, "IN");
+      console.log(`[CHECKIN] User ${user.hrmsEmail} — hrmsCheckin result: ${JSON.stringify(result)}`);
 
       await insertLog({
         userId: user.userId,
@@ -161,6 +194,8 @@ export async function runCheckinJob() {
       console.log(`[CHECKIN] User ${user.hrmsEmail} — ${result.success ? "SUCCESS" : "FAILED"} at ${result.time}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      console.error(`[CHECKIN] User ${user.hrmsEmail} — caught exception: ${message}`);
+      console.error(`[CHECKIN] User ${user.hrmsEmail} — stack trace:`, err);
       await insertLog({
         userId: user.userId,
         action: "CHECK_IN",
@@ -173,4 +208,6 @@ export async function runCheckinJob() {
       console.error(`[CHECKIN] User ${user.hrmsEmail} — ERROR: ${message}`);
     }
   }
+
+  console.log("[CHECKIN] ===== Checkin job completed =====");
 }

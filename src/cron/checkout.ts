@@ -24,25 +24,41 @@ function getRandomTimeInRange(start: string, end: string): string {
 }
 
 export async function runCheckoutJob() {
+  console.log("[CHECKOUT] ===== Starting checkout job =====");
   const today = todayIST();
   const currentTime = format(nowIST(), "HH:mm");
+  console.log(`[CHECKOUT] Today: ${today}, Current time: ${currentTime}`);
 
   const settings = await getSettingsCollection();
   const activeUsers = await settings.find({ automationEnabled: true }).toArray();
+  console.log(`[CHECKOUT] Found ${activeUsers.length} active users`);
   const scheduled = await getScheduledActionsCollection();
 
   const dayOfWeek = getDay(nowIST()); // 0=Sun, 6=Sat
+  console.log(`[CHECKOUT] Day of week: ${dayOfWeek} (0=Sun, 6=Sat)`)
 
   for (const user of activeUsers) {
+    console.log(`[CHECKOUT] Processing user: ${user.hrmsEmail}`);
+
     // Skip Saturday/Sunday per user setting
-    if (dayOfWeek === 6 && (user.skipSaturday ?? true)) continue;
-    if (dayOfWeek === 0 && (user.skipSunday ?? true)) continue;
+    if (dayOfWeek === 6 && (user.skipSaturday ?? true)) {
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — skipped (Saturday)`);
+      continue;
+    }
+    if (dayOfWeek === 0 && (user.skipSunday ?? true)) {
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — skipped (Sunday)`);
+      continue;
+    }
 
     const start = user.checkoutStart || DEFAULT_START;
     const end = user.checkoutEnd || DEFAULT_END;
+    console.log(`[CHECKOUT] User ${user.hrmsEmail} — window: ${start} - ${end}`);
 
     // Not yet in the window
-    if (currentTime < start) continue;
+    if (currentTime < start) {
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — not yet in window (current: ${currentTime} < start: ${start})`);
+      continue;
+    }
 
     // Check existing scheduled action for today
     const existing = await scheduled.findOne({
@@ -50,13 +66,18 @@ export async function runCheckoutJob() {
       date: today,
       action: "checkout",
     });
+    console.log(`[CHECKOUT] User ${user.hrmsEmail} — existing scheduled action: ${existing ? `found (executed: ${existing.executed}, targetTime: ${existing.targetTime})` : 'none'}`);
 
     // Already executed today
-    if (existing?.executed) continue;
+    if (existing?.executed) {
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — already executed today`);
+      continue;
+    }
 
     // Check leave early — skip before scheduling
     const leaves = await getLeavesCollection();
     const onLeave = await leaves.findOne({ userId: user.userId, date: today });
+    console.log(`[CHECKOUT] User ${user.hrmsEmail} — leave check: ${onLeave ? `on leave (${onLeave.reason})` : 'not on leave'}`);
     if (onLeave) {
       await scheduled.updateOne(
         { userId: user.userId, date: today, action: "checkout" },
@@ -78,6 +99,7 @@ export async function runCheckoutJob() {
 
     // Past the window — mark as missed
     if (currentTime > end) {
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — past window (current: ${currentTime} > end: ${end}), marking as missed`);
       if (!existing) {
         await scheduled.updateOne(
           { userId: user.userId, date: today, action: "checkout" },
@@ -110,7 +132,12 @@ export async function runCheckoutJob() {
     }
 
     // Not yet time
-    if (currentTime < targetTime) continue;
+    if (currentTime < targetTime) {
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — not yet time (current: ${currentTime} < target: ${targetTime})`);
+      continue;
+    }
+
+    console.log(`[CHECKOUT] User ${user.hrmsEmail} — executing checkout now (current: ${currentTime}, target: ${targetTime})`);
 
     // Mark as executed
     await scheduled.updateOne(
@@ -119,14 +146,18 @@ export async function runCheckoutJob() {
     );
 
     try {
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — decrypting password`);
       const password = decrypt(
         user.hrmsPasswordEncrypted,
         user.hrmsPasswordIv,
         user.hrmsPasswordTag
       );
 
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — logging into HRMS`);
       const session = await hrmsLogin(user.hrmsEmail, password);
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — fetching current state`);
       const state = await hrmsGetState(session);
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — current checkins: ${JSON.stringify(state.checkins)}`);
 
       if (state.checkins.some((c) => c.log_type === "OUT")) {
         await insertLog({
@@ -156,7 +187,9 @@ export async function runCheckoutJob() {
         continue;
       }
 
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — calling hrmsCheckin with lat: ${user.latitude}, lng: ${user.longitude}`);
       const result = await hrmsCheckin(session, user.latitude, user.longitude, "OUT");
+      console.log(`[CHECKOUT] User ${user.hrmsEmail} — hrmsCheckin result: ${JSON.stringify(result)}`);
 
       await insertLog({
         userId: user.userId,
@@ -175,6 +208,8 @@ export async function runCheckoutJob() {
       console.log(`[CHECKOUT] User ${user.hrmsEmail} — ${result.success ? "SUCCESS" : "FAILED"} at ${result.time}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      console.error(`[CHECKOUT] User ${user.hrmsEmail} — caught exception: ${message}`);
+      console.error(`[CHECKOUT] User ${user.hrmsEmail} — stack trace:`, err);
       await insertLog({
         userId: user.userId,
         action: "CHECK_OUT",
@@ -187,4 +222,6 @@ export async function runCheckoutJob() {
       console.error(`[CHECKOUT] User ${user.hrmsEmail} — ERROR: ${message}`);
     }
   }
+
+  console.log("[CHECKOUT] ===== Checkout job completed =====");
 }
