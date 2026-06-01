@@ -8,8 +8,8 @@ import { sendFailureEmail, sendLeaveNotificationEmail } from "@/lib/mail";
 import { todayIST, nowIST } from "@/lib/utils";
 import { format, getDay } from "date-fns";
 
-const DEFAULT_START = "18:00";
-const DEFAULT_END = "18:45";
+const DEFAULT_START = "19:30";
+const DEFAULT_END = "20:00";
 
 function getRandomTimeInRange(start: string, end: string): string {
   const [sh, sm] = start.split(":").map(Number);
