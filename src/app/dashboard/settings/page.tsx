@@ -276,7 +276,7 @@ export default function SettingsPage() {
               )}
             </div>
             <p className="text-xs text-muted -mt-2">
-              Defaults: check-in 09:30–10:00, check-out 18:00–18:45
+              Defaults: check-in 09:30–10:00, check-out 19:30–20:00
             </p>
 
             <div>
