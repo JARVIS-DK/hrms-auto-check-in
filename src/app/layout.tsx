@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "HRMS Auto Check-in",
   description: "Automated HRMS check-in/check-out scheduler",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({

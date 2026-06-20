@@ -6,6 +6,8 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  connectionTimeout: 10000,
+  socketTimeout: 10000,
 });
 
 const FROM_EMAIL = process.env.SMTP_FROM || process.env.SMTP_USER!;
@@ -41,6 +43,33 @@ export async function sendFailureEmail(
     console.log(`[MAIL] Failure notification sent to ${to} for ${action}`);
   } catch (err) {
     console.error(`[MAIL] Failed to send email to ${to}:`, err);
+  }
+}
+
+export async function sendOtpEmail(to: string, otp: string) {
+  try {
+    await transporter.sendMail({
+      from: FROM_EMAIL,
+      to,
+      subject: `[HRMS] Password Reset OTP`,
+      html: `
+        <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #3b82f6; margin-bottom: 16px;">Password Reset</h2>
+          <p style="color: #374151; line-height: 1.6;">
+            Your OTP for password reset is:
+          </p>
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 16px 0; text-align: center;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1e40af;">${otp}</span>
+          </div>
+          <p style="color: #6b7280; font-size: 13px;">
+            This OTP is valid for 10 minutes. Do not share it with anyone.
+          </p>
+        </div>
+      `,
+    });
+    console.log(`[MAIL] OTP sent to ${to}`);
+  } catch (err) {
+    console.error(`[MAIL] Failed to send OTP to ${to}:`, err);
   }
 }
 

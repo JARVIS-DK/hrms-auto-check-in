@@ -6,6 +6,7 @@ export interface IScheduledAction {
   action: "checkin" | "checkout" | "leave_notify";
   targetTime: string; // "HH:mm"
   executed: boolean;
+  result?: "success" | "skipped" | "failed" | "missed" | "on_leave";
 }
 
 export async function getScheduledActionsCollection() {

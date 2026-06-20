@@ -6,6 +6,7 @@ export interface IUser {
   email: string;
   passwordHash: string;
   name: string;
+  role?: "admin" | "user";
   createdAt: Date;
 }
 

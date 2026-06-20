@@ -2,14 +2,12 @@ import { getSettingsCollection } from "@/lib/models/settings";
 import { getLeavesCollection } from "@/lib/models/leave";
 import { getScheduledActionsCollection } from "@/lib/models/scheduled-action";
 import { insertLog } from "@/lib/models/log";
+import { getGlobalDefaults } from "@/lib/models/global-settings";
 import { decrypt } from "@/lib/crypto";
 import { hrmsLogin, hrmsGetState, hrmsCheckin } from "@/lib/hrms/client";
 import { sendFailureEmail, sendLeaveNotificationEmail } from "@/lib/mail";
 import { todayIST, nowIST } from "@/lib/utils";
 import { format, getDay } from "date-fns";
-
-const DEFAULT_START = "19:30";
-const DEFAULT_END = "20:00";
 
 function getRandomTimeInRange(start: string, end: string): string {
   const [sh, sm] = start.split(":").map(Number);
@@ -28,6 +26,8 @@ export async function runCheckoutJob() {
   const today = todayIST();
   const currentTime = format(nowIST(), "HH:mm");
   console.log(`[CHECKOUT] Today: ${today}, Current time: ${currentTime}`);
+
+  const globalDefaults = await getGlobalDefaults();
 
   const settings = await getSettingsCollection();
   const activeUsers = await settings.find({ automationEnabled: true }).toArray();
@@ -50,8 +50,8 @@ export async function runCheckoutJob() {
       continue;
     }
 
-    const start = user.checkoutStart || DEFAULT_START;
-    const end = user.checkoutEnd || DEFAULT_END;
+    const start = user.checkoutStart || globalDefaults.checkoutStart;
+    const end = user.checkoutEnd || globalDefaults.checkoutEnd;
     console.log(`[CHECKOUT] User ${user.hrmsEmail} — window: ${start} - ${end}`);
 
     // Not yet in the window
@@ -81,7 +81,7 @@ export async function runCheckoutJob() {
     if (onLeave) {
       await scheduled.updateOne(
         { userId: user.userId, date: today, action: "checkout" },
-        { $set: { targetTime: start, executed: true } },
+        { $set: { targetTime: start, executed: true, result: "on_leave" } },
         { upsert: true }
       );
       await insertLog({
@@ -103,13 +103,13 @@ export async function runCheckoutJob() {
       if (!existing) {
         await scheduled.updateOne(
           { userId: user.userId, date: today, action: "checkout" },
-          { $set: { targetTime: end, executed: true } },
+          { $set: { targetTime: end, executed: true, result: "missed" } },
           { upsert: true }
         );
       } else {
         await scheduled.updateOne(
           { _id: existing._id },
-          { $set: { executed: true } }
+          { $set: { executed: true, result: "missed" } }
         );
       }
       continue;
@@ -139,7 +139,7 @@ export async function runCheckoutJob() {
 
     console.log(`[CHECKOUT] User ${user.hrmsEmail} — executing checkout now (current: ${currentTime}, target: ${targetTime})`);
 
-    // Mark as executed
+    // Mark as executed (result will be updated below)
     await scheduled.updateOne(
       { userId: user.userId, date: today, action: "checkout" },
       { $set: { executed: true } }
@@ -160,6 +160,10 @@ export async function runCheckoutJob() {
       console.log(`[CHECKOUT] User ${user.hrmsEmail} — current checkins: ${JSON.stringify(state.checkins)}`);
 
       if (state.checkins.some((c) => c.log_type === "OUT")) {
+        await scheduled.updateOne(
+          { userId: user.userId, date: today, action: "checkout" },
+          { $set: { result: "skipped" } }
+        );
         await insertLog({
           userId: user.userId,
           action: "CHECK_OUT",
@@ -174,6 +178,10 @@ export async function runCheckoutJob() {
       }
 
       if (!state.checkins.some((c) => c.log_type === "IN")) {
+        await scheduled.updateOne(
+          { userId: user.userId, date: today, action: "checkout" },
+          { $set: { result: "skipped" } }
+        );
         await insertLog({
           userId: user.userId,
           action: "CHECK_OUT",
@@ -190,6 +198,11 @@ export async function runCheckoutJob() {
       console.log(`[CHECKOUT] User ${user.hrmsEmail} — calling hrmsCheckin with lat: ${user.latitude}, lng: ${user.longitude}`);
       const result = await hrmsCheckin(session, user.latitude, user.longitude, "OUT");
       console.log(`[CHECKOUT] User ${user.hrmsEmail} — hrmsCheckin result: ${JSON.stringify(result)}`);
+
+      await scheduled.updateOne(
+        { userId: user.userId, date: today, action: "checkout" },
+        { $set: { result: result.success ? "success" : "failed" } }
+      );
 
       await insertLog({
         userId: user.userId,
@@ -210,6 +223,10 @@ export async function runCheckoutJob() {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[CHECKOUT] User ${user.hrmsEmail} — caught exception: ${message}`);
       console.error(`[CHECKOUT] User ${user.hrmsEmail} — stack trace:`, err);
+      await scheduled.updateOne(
+        { userId: user.userId, date: today, action: "checkout" },
+        { $set: { result: "failed" } }
+      );
       await insertLog({
         userId: user.userId,
         action: "CHECK_OUT",

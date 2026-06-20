@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
   {
@@ -41,6 +41,16 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    href: "/dashboard/admin",
+    label: "Admin",
+    adminOnly: true,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    ),
+  },
 ];
 
 export default function DashboardLayout({
@@ -50,11 +60,23 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userRole, setUserRole] = useState<"admin" | "user">("user");
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.role) setUserRole(data.role);
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";
   }
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => !item.adminOnly || userRole === "admin");
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -91,7 +113,7 @@ export default function DashboardLayout({
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop sidebar */}
         <nav className="hidden md:flex shrink-0 w-52 2xl:w-60 bg-card border-r border-border p-3 flex-col gap-0.5 overflow-y-auto">
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -129,7 +151,7 @@ export default function DashboardLayout({
                   </svg>
                 </button>
               </div>
-              {NAV_ITEMS.map((item) => (
+              {visibleNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
