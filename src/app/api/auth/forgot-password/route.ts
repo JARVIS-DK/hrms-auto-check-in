@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUsersCollection } from "@/lib/models/user";
-import { createOtp } from "@/lib/models/password-reset";
-import { sendOtpEmail } from "@/lib/mail";
+import { createResetToken } from "@/lib/models/password-reset";
+import { sendResetLinkEmail } from "@/lib/mail";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,8 +19,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No account found with this email" }, { status: 400 });
     }
 
-    const otp = await createOtp(email);
-    sendOtpEmail(email, otp);
+    const token = await createResetToken(email);
+    const origin = req.nextUrl.origin;
+    const resetUrl = `${origin}/reset-password?token=${token}`;
+    sendResetLinkEmail(email, resetUrl);
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -77,11 +78,9 @@ export default function RegisterPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-muted mb-1.5">Password</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                onChange={setPassword}
                 placeholder="Min. 6 characters"
                 required
                 minLength={6}

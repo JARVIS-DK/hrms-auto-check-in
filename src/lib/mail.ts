@@ -49,30 +49,35 @@ export async function sendFailureEmail(
   }
 }
 
-export async function sendOtpEmail(to: string, otp: string) {
+export async function sendResetLinkEmail(to: string, resetUrl: string) {
   try {
     await transporter.sendMail({
       from: FROM_EMAIL,
       to,
-      subject: `[HRMS] Password Reset OTP`,
+      subject: `[HRMS] Password Reset`,
       html: `
         <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
           <h2 style="color: #3b82f6; margin-bottom: 16px;">Password Reset</h2>
           <p style="color: #374151; line-height: 1.6;">
-            Your OTP for password reset is:
+            Click the button below to reset your password:
           </p>
-          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 16px 0; text-align: center;">
-            <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1e40af;">${otp}</span>
+          <div style="margin: 24px 0; text-align: center;">
+            <a href="${resetUrl}" style="display: inline-block; background: #3b82f6; color: #ffffff; font-weight: 600; font-size: 14px; padding: 12px 32px; border-radius: 8px; text-decoration: none;">
+              Reset Password
+            </a>
           </div>
           <p style="color: #6b7280; font-size: 13px;">
-            This OTP is valid for 10 minutes. Do not share it with anyone.
+            This link is valid for 1 hour. If you did not request this, ignore this email.
+          </p>
+          <p style="color: #9ca3af; font-size: 11px; margin-top: 16px; word-break: break-all;">
+            ${resetUrl}
           </p>
         </div>
       `,
     });
-    console.log(`[MAIL] OTP sent to ${to}`);
+    console.log(`[MAIL] Reset link sent to ${to}`);
   } catch (err) {
-    console.error(`[MAIL] Failed to send OTP to ${to}:`, err);
+    console.error(`[MAIL] Failed to send reset link to ${to}:`, err);
   }
 }
 

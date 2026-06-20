@@ -1,10 +1,11 @@
+import { randomBytes } from "crypto";
 import { getDb } from "../db";
 
 export interface IPasswordReset {
   email: string;
-  otp: string;
+  token: string;
   expiresAt: Date;
-  attempts: number;
+  used: boolean;
 }
 
 export async function getPasswordResetCollection() {
@@ -12,34 +13,30 @@ export async function getPasswordResetCollection() {
   return db.collection<IPasswordReset>("password_resets");
 }
 
-export async function createOtp(email: string): Promise<string> {
+export async function createResetToken(email: string): Promise<string> {
   const col = await getPasswordResetCollection();
   const normalizedEmail = email.toLowerCase().trim();
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
   await col.deleteMany({ email: normalizedEmail });
-  await col.insertOne({ email: normalizedEmail, otp, expiresAt, attempts: 0 });
-  return otp;
+  await col.insertOne({ email: normalizedEmail, token, expiresAt, used: false });
+  return token;
 }
 
-export async function verifyOtp(
-  email: string,
-  otp: string
-): Promise<{ valid: boolean; reason?: string }> {
+export async function verifyResetToken(
+  token: string
+): Promise<{ valid: boolean; email?: string; reason?: string }> {
   const col = await getPasswordResetCollection();
-  const normalizedEmail = email.toLowerCase().trim();
-  const record = await col.findOne({ email: normalizedEmail });
+  const record = await col.findOne({ token, used: false });
 
-  if (!record) return { valid: false, reason: "No OTP requested" };
-  if (record.expiresAt < new Date()) return { valid: false, reason: "OTP expired" };
-  if (record.attempts >= 5) return { valid: false, reason: "Too many attempts" };
+  if (!record) return { valid: false, reason: "Invalid or expired reset link" };
+  if (record.expiresAt < new Date()) return { valid: false, reason: "Reset link has expired" };
 
-  if (record.otp !== otp) {
-    await col.updateOne({ email: normalizedEmail }, { $inc: { attempts: 1 } });
-    return { valid: false, reason: "Invalid OTP" };
-  }
+  return { valid: true, email: record.email };
+}
 
-  await col.deleteMany({ email: normalizedEmail });
-  return { valid: true };
+export async function markTokenUsed(token: string) {
+  const col = await getPasswordResetCollection();
+  await col.updateOne({ token }, { $set: { used: true } });
 }

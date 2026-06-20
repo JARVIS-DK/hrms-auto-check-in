@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import TimeInput from "@/components/ui/TimeInput";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 export default function SettingsPage() {
   const [hrmsEmail, setHrmsEmail] = useState("");
@@ -212,11 +213,9 @@ export default function SettingsPage() {
                   <span className="text-muted font-normal">(leave blank to keep current)</span>
                 )}
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 value={hrmsPassword}
-                onChange={(e) => setHrmsPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                onChange={setHrmsPassword}
                 placeholder={hasPassword ? "••••••••" : "Enter password"}
                 required={!hasPassword}
               />
