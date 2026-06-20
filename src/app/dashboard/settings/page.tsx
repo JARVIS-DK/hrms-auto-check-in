@@ -15,8 +15,11 @@ export default function SettingsPage() {
   const [checkoutEnd, setCheckoutEnd] = useState("");
   const [skipSaturday, setSkipSaturday] = useState(true);
   const [skipSunday, setSkipSunday] = useState(true);
+  const [automationEnabled, setAutomationEnabled] = useState(false);
+  const [defaults, setDefaults] = useState<{ checkinStart: string; checkinEnd: string; checkoutStart: string; checkoutEnd: string } | null>(null);
   const [hasPassword, setHasPassword] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [locating, setLocating] = useState(false);
   const { toast } = useToast();
 
@@ -33,8 +36,14 @@ export default function SettingsPage() {
         setCheckoutEnd(data.checkoutEnd || "");
         setSkipSaturday(data.skipSaturday ?? true);
         setSkipSunday(data.skipSunday ?? true);
+        setAutomationEnabled(data.automationEnabled || false);
         setHasPassword(data.hasPassword || false);
       });
+
+    fetch("/api/global-defaults")
+      .then((r) => r.json())
+      .then((data) => setDefaults(data))
+      .catch(() => {});
   }, []);
 
   function getDefaultTimes() {
@@ -107,6 +116,25 @@ export default function SettingsPage() {
       toast("Network error", "error");
     }
     setSaving(false);
+  }
+
+  async function toggleAutomation() {
+    setToggling(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ automationEnabled: !automationEnabled }),
+      });
+      if (res.ok) {
+        const next = !automationEnabled;
+        setAutomationEnabled(next);
+        toast(next ? "Automation enabled" : "Automation disabled", "success");
+      }
+    } catch {
+      toast("Failed to toggle automation", "error");
+    }
+    setToggling(false);
   }
 
   function useMyLocation() {
@@ -275,8 +303,33 @@ export default function SettingsPage() {
                 </button>
               )}
             </div>
+
+            {/* Auto Scheduler Toggle */}
+            <div className="flex items-center justify-between p-3 bg-background rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className={`w-2.5 h-2.5 rounded-full ${automationEnabled ? "bg-success animate-pulse" : "bg-muted"}`} />
+                <div>
+                  <span className="text-sm font-medium">Auto Scheduler</span>
+                  <p className="text-xs text-muted">{automationEnabled ? "Running" : "Paused"}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={toggleAutomation}
+                disabled={toggling || !hasPassword}
+                className="relative w-12 h-7 rounded-full transition-colors disabled:opacity-50"
+                style={{ backgroundColor: automationEnabled ? "var(--success)" : "var(--border)" }}
+              >
+                <span
+                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+                    automationEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
             <p className="text-xs text-muted -mt-2">
-              Defaults: check-in 09:30–10:00, check-out 19:30–20:00
+              Defaults: check-in {defaults ? `${defaults.checkinStart}–${defaults.checkinEnd}` : "..."}, check-out {defaults ? `${defaults.checkoutStart}–${defaults.checkoutEnd}` : "..."}
             </p>
 
             <div>
