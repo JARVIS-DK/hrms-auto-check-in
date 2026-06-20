@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const token = await createResetToken(email);
     const origin = req.nextUrl.origin;
     const resetUrl = `${origin}/reset-password?token=${token}`;
-    sendResetLinkEmail(email, resetUrl);
+    await sendResetLinkEmail(email, resetUrl);
 
     return NextResponse.json({ success: true });
   } catch (err) {
