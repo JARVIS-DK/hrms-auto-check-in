@@ -24,12 +24,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const users = await getUsersCollection();
+    const user = await users.findOne({ email });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 400 });
+    }
+
     const result = await verifyOtp(email, otp);
     if (!result.valid) {
       return NextResponse.json({ error: result.reason }, { status: 400 });
     }
 
-    const users = await getUsersCollection();
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await users.updateOne({ email }, { $set: { passwordHash } });
 

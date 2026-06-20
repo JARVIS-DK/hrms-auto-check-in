@@ -16,8 +16,7 @@ export async function POST(req: NextRequest) {
     const user = await users.findOne({ email });
 
     if (!user) {
-      // Don't reveal whether the email exists
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ error: "No account found with this email" }, { status: 400 });
     }
 
     const otp = await createOtp(email);

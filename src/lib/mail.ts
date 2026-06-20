@@ -1,4 +1,7 @@
+import dns from "dns";
 import nodemailer from "nodemailer";
+
+dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
