@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/middleware/adminAuth";
+import { requireAdmin, handleAdminError } from "@/lib/middleware/adminAuth";
+import { clampInt } from "@/lib/utils";
 import { getDb } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
@@ -7,7 +8,7 @@ export async function GET(req: NextRequest) {
     await requireAdmin();
 
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get("page") || "1", 10);
+    const page = clampInt(searchParams.get("page"), 1, 1, 10_000);
     const limit = 30;
     const skip = (page - 1) * limit;
 
@@ -30,7 +31,8 @@ export async function GET(req: NextRequest) {
     }
 
     if (filterUserId) {
-      query.userId = parseInt(filterUserId, 10);
+      const userId = parseInt(filterUserId, 10);
+      if (!Number.isNaN(userId)) query.userId = userId;
     }
 
     if (filterAction) {
@@ -82,20 +84,12 @@ export async function GET(req: NextRequest) {
       page,
       totalPages: Math.ceil(total / limit),
     });
-  } catch (err: unknown) {
-    const error = err as Error;
-    console.error("[API /admin/scheduled-actions GET]", error);
-
-    if (error.message === "Unauthorized" || error.message.includes("Forbidden")) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.message === "Unauthorized" ? 401 : 403 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Internal server error", scheduledActions: [], total: 0 },
-      { status: 500 }
-    );
+  } catch (err) {
+    return handleAdminError("/admin/scheduled-actions", err, {
+      scheduledActions: [],
+      total: 0,
+      page: 1,
+      totalPages: 1,
+    });
   }
 }

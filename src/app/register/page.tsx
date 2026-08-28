@@ -1,28 +1,70 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import PasswordInput from "@/components/ui/PasswordInput";
 
-export default function RegisterPage() {
+const MIN_PASSWORD_LENGTH = 8;
+
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const invite = searchParams.get("invite");
+
   const [name, setName] = useState("");
+  // Filled from the invite and read-only — the server rejects any other address.
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // A missing token is knowable at render time, so it starts resolved rather
+  // than being set from inside an effect.
+  const [checking, setChecking] = useState(Boolean(invite));
+  const [inviteError, setInviteError] = useState(
+    invite ? "" : "Registration is invite-only. Ask an admin for an invite link."
+  );
+
+  useEffect(() => {
+    if (!invite) return;
+
+    const controller = new AbortController();
+
+    fetch(`/api/auth/invite?token=${encodeURIComponent(invite)}`, { signal: controller.signal })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok || !data.valid) {
+          setInviteError(data.reason || "This invite link is invalid or has expired");
+        } else {
+          setEmail(data.email);
+        }
+        setChecking(false);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setInviteError("Could not verify this invite link");
+        setChecking(false);
+      });
+
+    return () => controller.abort();
+  }, [invite]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+      return;
+    }
+
+    setLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, invite }),
       });
 
       const data = await res.json();
@@ -37,6 +79,31 @@ export default function RegisterPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checking) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (inviteError) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-danger/10 mx-auto">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          </div>
+          <h2 className="text-lg font-bold mb-2">Invite Required</h2>
+          <p className="text-sm text-muted">{inviteError}</p>
+          <Link href="/login" className="inline-block mt-6 text-sm text-primary font-medium hover:underline">
+            Back to sign in
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -70,21 +137,25 @@ export default function RegisterPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                placeholder="you@example.com"
-                required
+                readOnly
+                className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm bg-background text-muted cursor-not-allowed"
               />
+              <p className="text-[11px] text-muted mt-1.5">
+                This invite is bound to this address.
+              </p>
             </div>
             <div>
               <label className="block text-xs font-medium text-muted mb-1.5">Password</label>
               <PasswordInput
                 value={password}
                 onChange={setPassword}
-                placeholder="Min. 6 characters"
+                placeholder={`Min. ${MIN_PASSWORD_LENGTH} characters`}
                 required
-                minLength={6}
+                minLength={MIN_PASSWORD_LENGTH}
               />
+              <p className="text-[11px] text-muted mt-1.5">
+                At least {MIN_PASSWORD_LENGTH} characters, including a letter and a number.
+              </p>
             </div>
 
             {error && (
@@ -119,5 +190,19 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <RegisterContent />
+    </Suspense>
   );
 }

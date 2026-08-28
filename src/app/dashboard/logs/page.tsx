@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import DateInput from "@/components/ui/DateInput";
 
 interface LogEntry {
@@ -22,34 +22,57 @@ export default function LogsPage() {
   const [filterAction, setFilterAction] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
-  const fetchLogs = useCallback(async (p: number) => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(p), limit: "15" });
+  // Bumped by anything that should re-run the query. The effect never flips
+  // `loading` on synchronously — the handlers below do that before the state
+  // they change lands, which keeps the spinner immediate without an
+  // effect-driven cascading render.
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const params = new URLSearchParams({ page: String(page), limit: "15" });
     if (filterDate) params.set("date", filterDate);
     if (filterAction) params.set("action", filterAction);
     if (filterStatus) params.set("status", filterStatus);
 
-    const res = await fetch(`/api/logs?${params.toString()}`);
-    const data = await res.json();
-    setLogs(data.logs || []);
-    setTotalPages(data.totalPages || 1);
-    setLoading(false);
-  }, [filterDate, filterAction, filterStatus]);
+    fetch(`/api/logs?${params.toString()}`, { signal: controller.signal })
+      .then((res) => res.json())
+      .then((data) => {
+        setLogs(data.logs || []);
+        setTotalPages(data.totalPages || 1);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setLogs([]);
+        setLoading(false);
+      });
 
-  useEffect(() => {
-    fetchLogs(page);
-  }, [page, fetchLogs]);
+    return () => controller.abort();
+    // filterDate/Action/Status are read here but intentionally only re-trigger
+    // via reloadKey, so typing in a filter doesn't fire a request per keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, reloadKey]);
 
   function applyFilters() {
+    setLoading(true);
     setPage(1);
-    fetchLogs(1);
+    setReloadKey((k) => k + 1);
+  }
+
+  function goToPage(p: number) {
+    setLoading(true);
+    setPage(p);
   }
 
   function clearFilters() {
     setFilterDate("");
     setFilterAction("");
     setFilterStatus("");
+    setLoading(true);
     setPage(1);
+    setReloadKey((k) => k + 1);
   }
 
   const hasFilters = filterDate || filterAction || filterStatus;
@@ -64,7 +87,7 @@ export default function LogsPage() {
             <p className="text-sm text-muted mt-0.5">View all check-in and check-out history</p>
           </div>
           <button
-            onClick={() => fetchLogs(page)}
+            onClick={() => { setLoading(true); setReloadKey((k) => k + 1); }}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border rounded-xl hover:bg-card disabled:opacity-50 transition-colors"
           >
@@ -205,7 +228,7 @@ export default function LogsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => goToPage(Math.max(1, page - 1))}
               disabled={page <= 1}
               className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-border rounded-xl disabled:opacity-40 hover:bg-card transition-colors"
             >
@@ -216,7 +239,7 @@ export default function LogsPage() {
               Page {page} of {totalPages}
             </span>
             <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => goToPage(Math.min(totalPages, page + 1))}
               disabled={page >= totalPages}
               className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-border rounded-xl disabled:opacity-40 hover:bg-card transition-colors"
             >

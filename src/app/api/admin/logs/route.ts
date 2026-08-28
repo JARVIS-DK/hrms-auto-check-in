@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/middleware/adminAuth";
+import { requireAdmin, handleAdminError } from "@/lib/middleware/adminAuth";
 import { getDb } from "@/lib/db";
+import { clampInt, istDayRangeUtc, isValidDateString } from "@/lib/utils";
+
+const ROUTE = "/admin/logs";
 
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin();
 
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const page = clampInt(searchParams.get("page"), 1, 1, 10_000);
+    const limit = clampInt(searchParams.get("limit"), 50, 1, 100);
     const skip = (page - 1) * limit;
 
     const filterUserId = searchParams.get("userId");
@@ -20,7 +23,8 @@ export async function GET(req: NextRequest) {
     const query: Record<string, unknown> = {};
 
     if (filterUserId) {
-      query.userId = parseInt(filterUserId, 10);
+      const userId = parseInt(filterUserId, 10);
+      if (!Number.isNaN(userId)) query.userId = userId;
     }
 
     if (filterAction) {
@@ -31,15 +35,19 @@ export async function GET(req: NextRequest) {
       query.status = filterStatus;
     }
 
-    if (filterDate) {
-      const start = new Date(`${filterDate}T00:00:00.000Z`);
-      const end = new Date(`${filterDate}T23:59:59.999Z`);
+    // IST day boundaries — see lib/utils.istDayRangeUtc. Matching against
+    // `${date}T00:00:00.000Z` dropped every evening check-out from its own day.
+    if (isValidDateString(filterDate)) {
+      const { start, end } = istDayRangeUtc(filterDate);
       query.executedAt = { $gte: start, $lte: end };
     }
 
     // Aggregate logs with user information
     const logsAgg = await db.collection("logs").aggregate([
       { $match: query },
+      { $sort: { executedAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
       {
         $lookup: {
           from: "users",
@@ -61,10 +69,7 @@ export async function GET(req: NextRequest) {
           userName: { $arrayElemAt: ["$user.name", 0] },
           userEmail: { $arrayElemAt: ["$user.email", 0] }
         }
-      },
-      { $sort: { executedAt: -1 } },
-      { $skip: skip },
-      { $limit: limit }
+      }
     ]).toArray();
 
     const total = await db.collection("logs").countDocuments(query);
@@ -86,20 +91,7 @@ export async function GET(req: NextRequest) {
       page,
       totalPages: Math.ceil(total / limit),
     });
-  } catch (err: unknown) {
-    const error = err as Error;
-    console.error("[API /admin/logs GET]", error);
-
-    if (error.message === "Unauthorized" || error.message.includes("Forbidden")) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.message === "Unauthorized" ? 401 : 403 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Internal server error", logs: [], total: 0, page: 1, totalPages: 1 },
-      { status: 500 }
-    );
+  } catch (err) {
+    return handleAdminError(ROUTE, err, { logs: [], total: 0, page: 1, totalPages: 1 });
   }
 }

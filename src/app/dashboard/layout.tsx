@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
 
 const NAV_ITEMS = [
   {
@@ -60,16 +61,10 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userRole, setUserRole] = useState<"admin" | "user">("user");
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.role) setUserRole(data.role);
-      })
-      .catch(() => {});
-  }, []);
+  // AuthProvider has already resolved the session — this used to be a second
+  // /api/auth/me request for the one field the context was missing.
+  const { user } = useAuth();
+  const userRole = user?.role ?? "user";
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });

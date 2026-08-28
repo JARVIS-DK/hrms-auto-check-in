@@ -1,10 +1,17 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef } from "react";
-import { usePathname } from "next/navigation";
+import { createContext, useContext, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+
+export interface AuthUser {
+  userId: number;
+  email: string;
+  name: string;
+  role: "admin" | "user";
+}
 
 interface AuthContextType {
-  user: { userId: string; email: string; name: string } | null;
+  user: AuthUser | null;
   loading: boolean;
 }
 
@@ -17,47 +24,45 @@ export function useAuth() {
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthContextType["user"]>(null);
-  const [loading, setLoading] = useState(true);
-  const pathname = usePathname();
-  const abortRef = useRef<AbortController | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  // Public pages have nothing to wait for, so they start resolved rather than
+  // flipping loading off from inside an effect.
+  const isPublic = PUBLIC_PATHS.includes(usePathname());
+  const [loading, setLoading] = useState(!isPublic);
+  const router = useRouter();
 
+  // Runs once per mount, not once per navigation. Keying this on `pathname`
+  // meant every route change refetched /api/auth/me and blanked the whole app
+  // to a "Loading..." screen while it was in flight.
   useEffect(() => {
-    if (PUBLIC_PATHS.includes(pathname)) {
-      setLoading(false);
-      return;
-    }
+    if (isPublic) return;
 
-    setLoading(true);
-    abortRef.current?.abort();
     const controller = new AbortController();
-    abortRef.current = controller;
 
     fetch("/api/auth/me", { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error("Not authenticated");
         return res.json();
       })
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setUser(data);
-          setLoading(false);
-        }
+      .then((data: AuthUser) => {
+        setUser(data);
+        setLoading(false);
       })
-      .catch((err) => {
+      .catch(() => {
         if (controller.signal.aborted) return;
         setUser(null);
         setLoading(false);
-        window.location.href = "/login";
+        router.replace("/login");
       });
 
     return () => controller.abort();
-  }, [pathname]);
+  }, [isPublic, router]);
+
+  if (isPublic) {
+    return <AuthContext.Provider value={{ user, loading: false }}>{children}</AuthContext.Provider>;
+  }
 
   if (loading) {
-    if (PUBLIC_PATHS.includes(pathname)) {
-      return <>{children}</>;
-    }
     return (
       <div className="flex-1 flex items-center justify-center">
         <p className="text-muted">Loading...</p>
@@ -65,13 +70,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     );
   }
 
-  if (!user && !PUBLIC_PATHS.includes(pathname)) {
-    return null;
-  }
+  if (!user) return null;
 
-  return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
 }

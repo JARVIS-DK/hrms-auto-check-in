@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/middleware/adminAuth";
+import { requireAdmin, handleAdminError } from "@/lib/middleware/adminAuth";
 import { getDb } from "@/lib/db";
 
 export async function GET() {
@@ -64,17 +64,7 @@ export async function GET() {
     }));
 
     return NextResponse.json({ users: formattedUsers });
-  } catch (err: unknown) {
-    const error = err as Error;
-    console.error("[API /admin/users GET]", error);
-
-    if (error.message === "Unauthorized" || error.message.includes("Forbidden")) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.message === "Unauthorized" ? 401 : 403 }
-      );
-    }
-
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return handleAdminError("/admin/users", err, { users: [] });
   }
 }

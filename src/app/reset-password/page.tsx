@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import PasswordInput from "@/components/ui/PasswordInput";
 
+// Kept in step with validatePassword() in lib/account.ts.
+const MIN_PASSWORD_LENGTH = 8;
+
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -15,17 +18,15 @@ function ResetPasswordContent() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [validating, setValidating] = useState(true);
-  const [invalid, setInvalid] = useState(false);
+  // A missing token is knowable at render time — deriving it here avoids an
+  // effect that immediately sets state and re-renders.
+  const [validating, setValidating] = useState(Boolean(token));
+  const [invalid, setInvalid] = useState(!token);
 
   useEffect(() => {
-    if (!token) {
-      setValidating(false);
-      setInvalid(true);
-      return;
-    }
+    if (!token) return;
 
-    fetch(`/api/auth/reset-password?token=${token}`)
+    fetch(`/api/auth/reset-password?token=${encodeURIComponent(token)}`)
       .then((r) => {
         if (!r.ok) setInvalid(true);
       })
@@ -83,8 +84,8 @@ function ResetPasswordContent() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
       return;
     }
 
@@ -133,9 +134,9 @@ function ResetPasswordContent() {
               <PasswordInput
                 value={newPassword}
                 onChange={setNewPassword}
-                placeholder="At least 6 characters"
+                placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                 required
-                minLength={6}
+                minLength={MIN_PASSWORD_LENGTH}
               />
             </div>
             <div>
@@ -145,7 +146,7 @@ function ResetPasswordContent() {
                 onChange={setConfirmPassword}
                 placeholder="Re-enter password"
                 required
-                minLength={6}
+                minLength={MIN_PASSWORD_LENGTH}
               />
             </div>
 

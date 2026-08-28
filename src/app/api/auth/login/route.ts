@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getUsersCollection } from "@/lib/models/user";
 import { signToken, getAuthCookie } from "@/lib/auth";
+import { findUserByEmail, normalizeEmail } from "@/lib/account";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const body = await req.json();
+    const email = normalizeEmail(body.email);
+    const password = body.password;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -14,8 +16,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const users = await getUsersCollection();
-    const user = await users.findOne({ email });
+    // Case-insensitive so accounts created before email normalization, with
+    // whatever casing was typed, still sign in.
+    const user = await findUserByEmail(email);
     if (!user) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }

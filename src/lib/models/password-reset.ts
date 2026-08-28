@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import { getDb } from "../db";
+import { normalizeEmail } from "../account";
 
 export interface IPasswordReset {
   email: string;
@@ -15,7 +16,7 @@ export async function getPasswordResetCollection() {
 
 export async function createResetToken(email: string): Promise<string> {
   const col = await getPasswordResetCollection();
-  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedEmail = normalizeEmail(email);
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 

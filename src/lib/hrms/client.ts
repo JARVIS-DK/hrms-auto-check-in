@@ -1,5 +1,15 @@
 const BASE_URL = "https://sopl.vprocure.com";
 
+/**
+ * A hung HRMS request would otherwise consume the whole 60s function budget
+ * and starve every user later in the batch.
+ */
+const REQUEST_TIMEOUT_MS = 10_000;
+
+function timeout() {
+  return AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+}
+
 const COMMON_HEADERS = {
   accept: "application/json, text/javascript, */*; q=0.01",
   "accept-language": "en-GB,en;q=0.6",
@@ -40,6 +50,7 @@ export async function hrmsLogin(
       "user-agent": COMMON_HEADERS["user-agent"],
     },
     body: JSON.stringify({ usr: email, pwd: password }),
+    signal: timeout(),
   });
 
   if (!res.ok) {
@@ -48,7 +59,8 @@ export async function hrmsLogin(
 
   const data = await res.json();
   if (data.message !== "Logged In") {
-    throw new Error(`HRMS login rejected: ${JSON.stringify(data)}`);
+    // Don't echo the raw body — it reaches logs and user-facing failure emails.
+    throw new Error("HRMS login rejected — credentials may have changed");
   }
 
   return { sid: data.sid, fullName: data.full_name };
@@ -66,6 +78,7 @@ export async function hrmsGetState(session: HrmsSession): Promise<CheckinState> 
       Cookie: `sid=${session.sid}`,
     },
     body: form,
+    signal: timeout(),
   });
 
   if (!res.ok) {
@@ -73,7 +86,15 @@ export async function hrmsGetState(session: HrmsSession): Promise<CheckinState> 
   }
 
   const data = await res.json();
-  return data.message as CheckinState;
+  const state = data.message as CheckinState | undefined;
+
+  // Guard the shape: without this an unexpected response surfaces to the user
+  // as "Cannot read properties of undefined" in a failure email.
+  if (!state || !Array.isArray(state.checkins)) {
+    throw new Error("HRMS get_state returned an unexpected response");
+  }
+
+  return state;
 }
 
 export async function hrmsCheckin(
@@ -96,6 +117,7 @@ export async function hrmsCheckin(
       Cookie: `sid=${session.sid}`,
     },
     body: form,
+    signal: timeout(),
   });
 
   if (!res.ok) {

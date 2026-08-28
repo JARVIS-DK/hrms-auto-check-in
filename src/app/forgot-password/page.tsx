@@ -46,8 +46,11 @@ export default function ForgotPasswordPage() {
             </svg>
           </div>
           <h2 className="text-lg font-bold mb-2">Check Your Email</h2>
+          {/* Worded so it reveals nothing: the API answers identically whether
+              or not an account exists, and this screen must match. */}
           <p className="text-sm text-muted">
-            We&apos;ve sent a password reset link to <strong>{email}</strong>. Click the link in the email to reset your password.
+            If an account exists for <strong>{email}</strong>, we&apos;ve sent it a password reset
+            link. Click the link in the email to reset your password.
           </p>
           <p className="text-xs text-muted mt-4">The link expires in 1 hour.</p>
           <Link href="/login" className="inline-block mt-6 text-sm text-primary font-medium hover:underline">

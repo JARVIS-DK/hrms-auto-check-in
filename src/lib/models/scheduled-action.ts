@@ -6,7 +6,7 @@ export interface IScheduledAction {
   action: "checkin" | "checkout" | "leave_notify";
   targetTime: string; // "HH:mm"
   executed: boolean;
-  result?: "success" | "skipped" | "failed" | "missed" | "on_leave";
+  result?: "success" | "skipped" | "failed" | "missed" | "on_leave" | "holiday";
 }
 
 export async function getScheduledActionsCollection() {
@@ -14,7 +14,5 @@ export async function getScheduledActionsCollection() {
   return db.collection<IScheduledAction>("scheduled_actions");
 }
 
-export async function ensureScheduledActionIndexes() {
-  const col = await getScheduledActionsCollection();
-  await col.createIndex({ userId: 1, date: 1, action: 1 }, { unique: true });
-}
+// Index creation lives in ./indexes.ts, which the cron route actually calls.
+// The version that used to live here was never invoked from anywhere.

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/middleware/adminAuth";
+import { requireAdmin, handleAdminError } from "@/lib/middleware/adminAuth";
 import { getDb } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
           _id: 1,
           userId: 1,
           date: 1,
+          type: 1,
           reason: 1,
           createdAt: 1,
           userName: { $arrayElemAt: ["$user.name", 0] },
@@ -58,25 +59,14 @@ export async function GET(req: NextRequest) {
         userName: leave.userName,
         userEmail: leave.userEmail,
         date: leave.date,
+        // Records predating half-day support carry no `type` and are full days.
+        type: leave.type ?? "full",
         reason: leave.reason,
         createdAt: leave.createdAt,
       })),
       total: leavesAgg.length,
     });
-  } catch (err: unknown) {
-    const error = err as Error;
-    console.error("[API /admin/leaves GET]", error);
-
-    if (error.message === "Unauthorized" || error.message.includes("Forbidden")) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.message === "Unauthorized" ? 401 : 403 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Internal server error", leaves: [], total: 0 },
-      { status: 500 }
-    );
+  } catch (err) {
+    return handleAdminError("/admin/leaves", err, { leaves: [], total: 0 });
   }
 }

@@ -5,19 +5,51 @@ import { useToast } from "@/components/ui/Toast";
 import TimeInput from "@/components/ui/TimeInput";
 import PasswordInput from "@/components/ui/PasswordInput";
 
+type TimeKey =
+  | "checkinStart"
+  | "checkinEnd"
+  | "checkoutStart"
+  | "checkoutEnd"
+  | "halfDayCheckinStart"
+  | "halfDayCheckinEnd"
+  | "halfDayCheckoutStart"
+  | "halfDayCheckoutEnd";
+
+/**
+ * Drives the form, validation, and payload together — four windows as eight
+ * separate useState pairs was already repetitive at two.
+ */
+const WINDOWS: { start: TimeKey; end: TimeKey; label: string; hint: string }[] = [
+  { start: "checkinStart", end: "checkinEnd", label: "Check-in", hint: "Normal working day" },
+  { start: "checkoutStart", end: "checkoutEnd", label: "Check-out", hint: "Normal working day" },
+  {
+    start: "halfDayCheckinStart",
+    end: "halfDayCheckinEnd",
+    label: "Half-day Check-in",
+    hint: "Used when you're on first-half leave",
+  },
+  {
+    start: "halfDayCheckoutStart",
+    end: "halfDayCheckoutEnd",
+    label: "Half-day Check-out",
+    hint: "Used when you're on second-half leave",
+  },
+];
+
+const TIME_KEYS = WINDOWS.flatMap((w) => [w.start, w.end]);
+
+const EMPTY_TIMES = Object.fromEntries(TIME_KEYS.map((k) => [k, ""])) as Record<TimeKey, string>;
+
 export default function SettingsPage() {
   const [hrmsEmail, setHrmsEmail] = useState("");
   const [hrmsPassword, setHrmsPassword] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-  const [checkinStart, setCheckinStart] = useState("");
-  const [checkinEnd, setCheckinEnd] = useState("");
-  const [checkoutStart, setCheckoutStart] = useState("");
-  const [checkoutEnd, setCheckoutEnd] = useState("");
+  const [times, setTimes] = useState<Record<TimeKey, string>>(EMPTY_TIMES);
   const [skipSaturday, setSkipSaturday] = useState(true);
   const [skipSunday, setSkipSunday] = useState(true);
   const [automationEnabled, setAutomationEnabled] = useState(false);
-  const [defaults, setDefaults] = useState<{ checkinStart: string; checkinEnd: string; checkoutStart: string; checkoutEnd: string } | null>(null);
+  const [defaults, setDefaults] = useState<Record<TimeKey, string> | null>(null);
   const [hasPassword, setHasPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -31,10 +63,9 @@ export default function SettingsPage() {
         setHrmsEmail(data.hrmsEmail || "");
         setLatitude(data.latitude || "");
         setLongitude(data.longitude || "");
-        setCheckinStart(data.checkinStart || "");
-        setCheckinEnd(data.checkinEnd || "");
-        setCheckoutStart(data.checkoutStart || "");
-        setCheckoutEnd(data.checkoutEnd || "");
+        setTimes(
+          Object.fromEntries(TIME_KEYS.map((k) => [k, data[k] || ""])) as Record<TimeKey, string>
+        );
         setSkipSaturday(data.skipSaturday ?? true);
         setSkipSunday(data.skipSunday ?? true);
         setAutomationEnabled(data.automationEnabled || false);
@@ -55,32 +86,35 @@ export default function SettingsPage() {
     return { start: fmt(start), end: fmt(end) };
   }
 
-  function handleCheckinStartFocus() {
-    if (!checkinStart) {
-      const { start, end } = getDefaultTimes();
-      setCheckinStart(start);
-      if (!checkinEnd) setCheckinEnd(end);
-    }
+  function setTime(key: TimeKey, value: string) {
+    setTimes((prev) => ({ ...prev, [key]: value }));
   }
 
-  function handleCheckoutStartFocus() {
-    if (!checkoutStart) {
-      const { start, end } = getDefaultTimes();
-      setCheckoutStart(start);
-      if (!checkoutEnd) setCheckoutEnd(end);
-    }
+  /** Prefill a blank window with a sensible span so the picker isn't empty. */
+  function handleStartFocus(startKey: TimeKey, endKey: TimeKey) {
+    if (times[startKey]) return;
+    const { start, end } = getDefaultTimes();
+    setTimes((prev) => ({
+      ...prev,
+      [startKey]: start,
+      [endKey]: prev[endKey] || end,
+    }));
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
 
-    if (checkinStart && checkinEnd && checkinStart >= checkinEnd) {
-      toast("Check-in start time must be before end time", "error");
-      return;
-    }
-    if (checkoutStart && checkoutEnd && checkoutStart >= checkoutEnd) {
-      toast("Check-out start time must be before end time", "error");
-      return;
+    for (const window of WINDOWS) {
+      const start = times[window.start];
+      const end = times[window.end];
+      if (start && end && start >= end) {
+        toast(`${window.label} start time must be before end time`, "error");
+        return;
+      }
+      if (Boolean(start) !== Boolean(end)) {
+        toast(`${window.label}: set both times, or leave both blank`, "error");
+        return;
+      }
     }
 
     setSaving(true);
@@ -89,10 +123,7 @@ export default function SettingsPage() {
       hrmsEmail,
       latitude,
       longitude,
-      checkinStart,
-      checkinEnd,
-      checkoutStart,
-      checkoutEnd,
+      ...times,
       skipSaturday,
       skipSunday,
     };
@@ -287,15 +318,10 @@ export default function SettingsPage() {
                 </svg>
                 Schedule Intervals
               </h3>
-              {(checkinStart || checkinEnd || checkoutStart || checkoutEnd) && (
+              {TIME_KEYS.some((k) => times[k]) && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setCheckinStart("");
-                    setCheckinEnd("");
-                    setCheckoutStart("");
-                    setCheckoutEnd("");
-                  }}
+                  onClick={() => setTimes(EMPTY_TIMES)}
                   className="px-2.5 py-1 text-xs font-medium text-danger border border-danger/30 rounded-lg hover:bg-danger/10 transition-colors"
                 >
                   Clear All
@@ -327,60 +353,40 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            <p className="text-xs text-muted -mt-2">
-              Defaults: check-in {defaults ? `${defaults.checkinStart}–${defaults.checkinEnd}` : "..."}, check-out {defaults ? `${defaults.checkoutStart}–${defaults.checkoutEnd}` : "..."}
-            </p>
-
-            <div>
-              <label className="block text-xs font-medium text-muted mb-2">Check-in Window</label>
-              <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
-                <div>
-                  <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
-                  <TimeInput
-                    value={checkinStart}
-                    onChange={setCheckinStart}
-                    onFocus={handleCheckinStartFocus}
-                    onClear={() => setCheckinStart("")}
-                  />
-                </div>
-                <span className="text-muted text-xs mt-5">—</span>
-                <div>
-                  <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
-                  <TimeInput
-                    value={checkinEnd}
-                    onChange={setCheckinEnd}
-                    onClear={() => setCheckinEnd("")}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-muted mb-2">Check-out Window</label>
-              <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
-                <div>
-                  <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
-                  <TimeInput
-                    value={checkoutStart}
-                    onChange={setCheckoutStart}
-                    onFocus={handleCheckoutStartFocus}
-                    onClear={() => setCheckoutStart("")}
-                  />
-                </div>
-                <span className="text-muted text-xs mt-5">—</span>
-                <div>
-                  <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
-                  <TimeInput
-                    value={checkoutEnd}
-                    onChange={setCheckoutEnd}
-                    onClear={() => setCheckoutEnd("")}
-                  />
+            {WINDOWS.map((window) => (
+              <div key={window.label}>
+                <label className="block text-xs font-medium text-muted">{window.label} Window</label>
+                <p className="text-[11px] text-muted/70 mb-2">
+                  {window.hint}
+                  {defaults ? ` · default ${defaults[window.start]}–${defaults[window.end]}` : ""}
+                </p>
+                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                  <div>
+                    <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
+                    <TimeInput
+                      value={times[window.start]}
+                      onChange={(v) => setTime(window.start, v)}
+                      onFocus={() => handleStartFocus(window.start, window.end)}
+                      onClear={() => setTime(window.start, "")}
+                    />
+                  </div>
+                  <span className="text-muted text-xs mt-5">—</span>
+                  <div>
+                    <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
+                    <TimeInput
+                      value={times[window.end]}
+                      onChange={(v) => setTime(window.end, v)}
+                      onClear={() => setTime(window.end, "")}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
 
             <p className="text-xs text-muted">
-              The scheduler randomly picks a time within each window. Leave blank for defaults.
+              The scheduler randomly picks a time within each window. Leave blank to use the
+              defaults shown above. Half-day windows apply on days you mark as half-day leave —
+              and you can override them for a single day when adding that leave.
             </p>
           </div>
 

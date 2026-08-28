@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 
 interface Settings {
@@ -16,8 +16,69 @@ interface LogEntry {
   skipReason?: string;
 }
 
+interface ActionPlan {
+  window: { start: string; end: string } | null;
+  targetTime: string | null;
+  executed: boolean;
+  result: string | null;
+}
+
+interface Today {
+  date: string;
+  automationEnabled: boolean;
+  holiday: { name: string } | null;
+  leave: { type: string; reason: string | null } | null;
+  weekendSkip: string | null;
+  checkin: ActionPlan | null;
+  checkout: ActionPlan | null;
+}
+
+const RESULT_STYLES: Record<string, string> = {
+  success: "bg-success/10 text-success",
+  skipped: "bg-muted/10 text-muted",
+  on_leave: "bg-primary/10 text-primary",
+  holiday: "bg-primary/10 text-primary",
+  failed: "bg-danger/10 text-danger",
+  missed: "bg-danger/10 text-danger",
+};
+
+const RESULT_LABELS: Record<string, string> = {
+  success: "Done",
+  skipped: "Skipped",
+  on_leave: "On leave",
+  holiday: "Holiday",
+  failed: "Failed",
+  missed: "Missed",
+};
+
+/** Turns the raw plan into the one line a person actually wants to read. */
+function planStatus(plan: ActionPlan | null, paused: boolean) {
+  if (!plan) return { label: "—", detail: "Not configured", style: "bg-muted/10 text-muted" };
+  if (plan.result) {
+    return {
+      label: RESULT_LABELS[plan.result] ?? plan.result,
+      detail: plan.targetTime && plan.result === "success" ? `at ${plan.targetTime}` : "",
+      style: RESULT_STYLES[plan.result] ?? "bg-muted/10 text-muted",
+    };
+  }
+  if (paused) return { label: "Paused", detail: "", style: "bg-muted/10 text-muted" };
+  if (plan.targetTime) {
+    return { label: "Scheduled", detail: `at ${plan.targetTime}`, style: "bg-primary/10 text-primary" };
+  }
+  if (plan.window) {
+    // Before the day's row exists the exact minute hasn't been drawn yet.
+    return {
+      label: "Pending",
+      detail: `between ${plan.window.start}–${plan.window.end}`,
+      style: "bg-muted/10 text-muted",
+    };
+  }
+  return { label: "—", detail: "", style: "bg-muted/10 text-muted" };
+}
+
 export default function DashboardPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [today, setToday] = useState<Today | null>(null);
   const [recentLogs, setRecentLogs] = useState<LogEntry[]>([]);
   const [toggling, setToggling] = useState(false);
   const [checkinLoading, setCheckinLoading] = useState(false);
@@ -25,7 +86,7 @@ export default function DashboardPage() {
   const [confirmAction, setConfirmAction] = useState<"IN" | "OUT" | null>(null);
   const { toast } = useToast();
 
-  function fetchLogs() {
+  const fetchLogs = useCallback(() => {
     fetch("/api/logs?limit=5")
       .then((r) => {
         if (!r.ok) return { logs: [] };
@@ -33,7 +94,14 @@ export default function DashboardPage() {
       })
       .then((d) => setRecentLogs(d.logs || []))
       .catch(() => setRecentLogs([]));
-  }
+  }, []);
+
+  const fetchToday = useCallback(() => {
+    fetch("/api/today")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setToday)
+      .catch(() => setToday(null));
+  }, []);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -45,7 +113,8 @@ export default function DashboardPage() {
       .catch((err) => toast(err.message, "error"));
 
     fetchLogs();
-  }, []);
+    fetchToday();
+  }, [fetchLogs, fetchToday, toast]);
 
   async function toggleAutomation() {
     if (!settings) return;
@@ -59,6 +128,8 @@ export default function DashboardPage() {
       if (res.ok) {
         const next = !settings.automationEnabled;
         setSettings({ ...settings, automationEnabled: next });
+        // Today's card reads the toggle, so it has to refresh with it.
+        fetchToday();
         toast(next ? "Automation enabled" : "Automation disabled", "success");
       }
     } catch {
@@ -69,7 +140,8 @@ export default function DashboardPage() {
 
   async function manualCheckin(logType: "IN" | "OUT") {
     const isIn = logType === "IN";
-    isIn ? setCheckinLoading(true) : setCheckoutLoading(true);
+    const setLoading = isIn ? setCheckinLoading : setCheckoutLoading;
+    setLoading(true);
 
     try {
       const res = await fetch("/api/checkin", {
@@ -84,12 +156,13 @@ export default function DashboardPage() {
       } else {
         toast(`${isIn ? "Check-in" : "Check-out"} successful at ${data.time}`, "success");
         fetchLogs();
+        fetchToday();
       }
     } catch {
       toast("Network error", "error");
     }
 
-    isIn ? setCheckinLoading(false) : setCheckoutLoading(false);
+    setLoading(false);
   }
 
   if (!settings) {
@@ -129,6 +202,96 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
+
+        {/* Today's plan — the randomly-picked time used to be invisible */}
+        {today && (
+          <div className="rounded-2xl p-5 bg-card border border-border">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-sm">Today</h3>
+              <span className="text-xs text-muted">
+                {new Date(today.date + "T00:00").toLocaleDateString("en-IN", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "short",
+                })}
+              </span>
+            </div>
+
+            {(() => {
+              const pausedReason = today.holiday
+                ? `Public holiday — ${today.holiday.name}`
+                : today.weekendSkip
+                  ? `${today.weekendSkip} — automation skipped`
+                  : today.leave?.type === "full"
+                    ? "On full-day leave"
+                    : !today.automationEnabled
+                      ? "Auto scheduler is off"
+                      : null;
+
+              return (
+                <>
+                  {pausedReason && (
+                    <div className="flex items-center gap-2 px-3 py-2.5 mb-3 bg-background rounded-xl">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                      <p className="text-xs text-muted">{pausedReason}</p>
+                    </div>
+                  )}
+
+                  {today.leave && today.leave.type !== "full" && (
+                    <div className="flex items-center gap-2 px-3 py-2.5 mb-3 bg-primary/10 rounded-xl">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <p className="text-xs text-primary">
+                        {today.leave.type === "first_half" ? "First-half" : "Second-half"} leave —
+                        times shifted below
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2.5">
+                    {([
+                      { key: "checkin", label: "Check-in", plan: today.checkin },
+                      { key: "checkout", label: "Check-out", plan: today.checkout },
+                    ] as const).map(({ key, label, plan }) => {
+                      const status = planStatus(plan, Boolean(pausedReason));
+                      return (
+                        <div key={key} className="flex items-center gap-3">
+                          <div
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              key === "checkin" ? "bg-success/10" : "bg-danger/10"
+                            }`}
+                          >
+                            <svg
+                              width="14" height="14" viewBox="0 0 24 24" fill="none"
+                              stroke={key === "checkin" ? "var(--success)" : "var(--danger)"}
+                              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                            >
+                              {key === "checkin" ? (
+                                <><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></>
+                              ) : (
+                                <><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></>
+                              )}
+                            </svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-xs">{label}</p>
+                            {status.detail && (
+                              <p className="text-xs text-muted truncate">{status.detail}</p>
+                            )}
+                          </div>
+                          <span
+                            className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${status.style}`}
+                          >
+                            {status.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Manual Check-in/Check-out */}
         <div className="rounded-2xl p-5 space-y-4 bg-card border border-border">

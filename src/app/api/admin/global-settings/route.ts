@@ -1,21 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/middleware/adminAuth";
-import { getGlobalSettingsCollection, getGlobalDefaults } from "@/lib/models/global-settings";
+import { requireAdmin, handleAdminError } from "@/lib/middleware/adminAuth";
+import {
+  getGlobalSettingsCollection,
+  getGlobalDefaults,
+  DEFAULTS,
+  type GlobalDefaults,
+} from "@/lib/models/global-settings";
+import { isValidTimeString } from "@/lib/utils";
+
+const ROUTE = "/admin/global-settings";
+
+const WINDOWS: { start: keyof GlobalDefaults; end: keyof GlobalDefaults; label: string }[] = [
+  { start: "checkinStart", end: "checkinEnd", label: "Check-in" },
+  { start: "checkoutStart", end: "checkoutEnd", label: "Check-out" },
+  { start: "halfDayCheckinStart", end: "halfDayCheckinEnd", label: "Half-day check-in" },
+  { start: "halfDayCheckoutStart", end: "halfDayCheckoutEnd", label: "Half-day check-out" },
+];
 
 export async function GET() {
   try {
     await requireAdmin();
-    const defaults = await getGlobalDefaults();
-    return NextResponse.json(defaults);
-  } catch (err: unknown) {
-    const error = err as Error;
-    if (error.message === "Unauthorized" || error.message.includes("Forbidden")) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.message === "Unauthorized" ? 401 : 403 }
-      );
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(await getGlobalDefaults());
+  } catch (err) {
+    return handleAdminError(ROUTE, err);
   }
 }
 
@@ -24,39 +31,40 @@ export async function PUT(req: NextRequest) {
     await requireAdmin();
 
     const body = await req.json();
-    const { checkinStart, checkinEnd, checkoutStart, checkoutEnd } = body;
+    const next = { ...DEFAULTS };
 
-    if (checkinStart && checkinEnd && checkinStart >= checkinEnd) {
-      return NextResponse.json({ error: "Check-in start must be before end" }, { status: 400 });
-    }
-    if (checkoutStart && checkoutEnd && checkoutStart >= checkoutEnd) {
-      return NextResponse.json({ error: "Check-out start must be before end" }, { status: 400 });
+    // Validate the format before storing: a malformed value here silently
+    // breaks the "HH:mm" string comparisons the whole scheduler is built on.
+    for (const window of WINDOWS) {
+      for (const key of [window.start, window.end] as const) {
+        const value = body[key];
+        if (value === undefined || value === "") continue;
+        if (!isValidTimeString(value)) {
+          return NextResponse.json(
+            { error: `${window.label}: times must be in HH:mm format` },
+            { status: 400 }
+          );
+        }
+        next[key] = value;
+      }
+
+      if (next[window.start] >= next[window.end]) {
+        return NextResponse.json(
+          { error: `${window.label} start must be before end` },
+          { status: 400 }
+        );
+      }
     }
 
     const col = await getGlobalSettingsCollection();
     await col.updateOne(
       { _id: "global" },
-      {
-        $set: {
-          checkinStart: checkinStart || "09:30",
-          checkinEnd: checkinEnd || "10:00",
-          checkoutStart: checkoutStart || "19:30",
-          checkoutEnd: checkoutEnd || "20:00",
-          updatedAt: new Date(),
-        },
-      },
+      { $set: { ...next, updatedAt: new Date() } },
       { upsert: true }
     );
 
     return NextResponse.json({ success: true });
-  } catch (err: unknown) {
-    const error = err as Error;
-    if (error.message === "Unauthorized" || error.message.includes("Forbidden")) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.message === "Unauthorized" ? 401 : 403 }
-      );
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return handleAdminError(ROUTE, err);
   }
 }

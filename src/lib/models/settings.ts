@@ -15,6 +15,12 @@ export interface ISettings {
   checkinEnd?: string;
   checkoutStart?: string;
   checkoutEnd?: string;
+  /** Arrival window on a first-half leave day; blank falls back to the global default. */
+  halfDayCheckinStart?: string;
+  halfDayCheckinEnd?: string;
+  /** Departure window on a second-half leave day; blank falls back to the global default. */
+  halfDayCheckoutStart?: string;
+  halfDayCheckoutEnd?: string;
   skipSaturday?: boolean;
   skipSunday?: boolean;
   createdAt: Date;

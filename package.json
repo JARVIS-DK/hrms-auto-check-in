@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "db:setup": "node --experimental-strip-types scripts/db-setup.mts indexes",
+    "db:check-emails": "node --experimental-strip-types scripts/db-setup.mts check-emails",
+    "db:check-dupes": "node --experimental-strip-types scripts/db-setup.mts check-dupes",
+    "db:fix-dupes": "node --experimental-strip-types scripts/db-setup.mts fix-dupes"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

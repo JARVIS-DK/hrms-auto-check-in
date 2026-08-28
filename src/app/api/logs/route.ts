@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { getLogsCollection } from "@/lib/models/log";
+import { clampInt, istDayRangeUtc, isValidDateString } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,8 +9,10 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "20", 10);
+    // Clamped: an unbounded or non-numeric limit used to reach Mongo directly,
+    // either dumping the whole collection or making `skip` NaN and throwing.
+    const page = clampInt(searchParams.get("page"), 1, 1, 10_000);
+    const limit = clampInt(searchParams.get("limit"), 20, 1, 100);
     const skip = (page - 1) * limit;
 
     const filterDate = searchParams.get("date");
@@ -28,9 +31,11 @@ export async function GET(req: NextRequest) {
       query.status = filterStatus;
     }
 
-    if (filterDate) {
-      const start = new Date(`${filterDate}T00:00:00.000Z`);
-      const end = new Date(`${filterDate}T23:59:59.999Z`);
+    // Still filters the stored `executedAt` instant, so existing records are
+    // matched exactly as before — only the day boundaries move from UTC to IST,
+    // which is the timezone every displayed time is already rendered in.
+    if (isValidDateString(filterDate)) {
+      const { start, end } = istDayRangeUtc(filterDate);
       query.executedAt = { $gte: start, $lte: end };
     }
 
