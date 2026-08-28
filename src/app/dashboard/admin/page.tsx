@@ -4,6 +4,19 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useToast } from "@/components/ui/Toast";
 import DateInput from "@/components/ui/DateInput";
 import TimeInput from "@/components/ui/TimeInput";
+import Modal, { ConfirmDialog } from "@/components/ui/Modal";
+import {
+  Table,
+  THead,
+  Th,
+  TBody,
+  Tr,
+  Td,
+  TableCard,
+  TableEmpty,
+  TableLoading,
+} from "@/components/ui/Table";
+import { AttendanceBadge } from "@/components/ui/icons";
 
 type Tab = "users" | "logs" | "leaves" | "scheduled" | "holidays" | "invites";
 
@@ -345,36 +358,49 @@ export default function AdminPage() {
     });
   }, [users, userSearch, automationFilter]);
 
-  // These fetchers only setState after awaiting the network, so there is no
-  // cascading render — the lint rule flags any call to a setState-containing
-  // function from an effect body and can't see through the async boundary.
-  // The synchronous `loading` flip lives in switchTab/refreshCurrentTab instead.
+  /**
+   * The one place that knows how to load a tab.
+   *
+   * `Record<Tab, ...>` makes this exhaustive: adding a tab without a loader is
+   * a compile error. It used to be an if-else chain written out twice, and the
+   * two drifted — the effect had no `users` branch, so switching away from
+   * Users and back set `loading` true with nothing left to turn it off, and the
+   * tab span forever.
+   */
+  const loadTab = useCallback(
+    (tab: Tab) => {
+      const loaders: Record<Tab, () => void> = {
+        users: () => {
+          fetchUsers();
+          fetchGlobalDefaults();
+        },
+        logs: () => fetchLogs(logsPage),
+        leaves: () => fetchLeaves(),
+        scheduled: () => fetchScheduled(scheduledPage),
+        holidays: () => fetchHolidays(),
+        invites: () => fetchInvites(),
+      };
+      loaders[tab]();
+    },
+    [
+      fetchUsers,
+      fetchGlobalDefaults,
+      fetchLogs,
+      fetchLeaves,
+      fetchScheduled,
+      fetchHolidays,
+      fetchInvites,
+      logsPage,
+      scheduledPage,
+    ]
+  );
 
-  // Always fetch users and global defaults
+  // The loaders only setState after awaiting the network, so there is no
+  // cascading render. The synchronous `loading` flip lives in
+  // switchTab/refreshCurrentTab, not here.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchUsers();
-    fetchGlobalDefaults();
-  }, [fetchUsers, fetchGlobalDefaults]);
-
-  // Load tab-specific data
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (activeTab === "logs") fetchLogs(logsPage);
-    else if (activeTab === "leaves") fetchLeaves();
-    else if (activeTab === "scheduled") fetchScheduled(scheduledPage);
-    else if (activeTab === "holidays") fetchHolidays();
-    else if (activeTab === "invites") fetchInvites();
-  }, [
-    activeTab,
-    fetchLogs,
-    fetchLeaves,
-    fetchScheduled,
-    fetchHolidays,
-    fetchInvites,
-    logsPage,
-    scheduledPage,
-  ]);
+    loadTab(activeTab);
+  }, [activeTab, loadTab]);
 
   function switchTab(tab: Tab) {
     if (tab === activeTab) return;
@@ -384,12 +410,7 @@ export default function AdminPage() {
 
   function refreshCurrentTab() {
     setLoading(true);
-    if (activeTab === "users") fetchUsers();
-    else if (activeTab === "logs") fetchLogs(logsPage);
-    else if (activeTab === "leaves") fetchLeaves();
-    else if (activeTab === "scheduled") fetchScheduled(scheduledPage);
-    else if (activeTab === "holidays") fetchHolidays();
-    else if (activeTab === "invites") fetchInvites();
+    loadTab(activeTab);
   }
 
   /** Expand an optional end date into the inclusive list of dates it covers. */
@@ -591,7 +612,7 @@ export default function AdminPage() {
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border rounded-xl hover:bg-card disabled:opacity-50 transition-colors"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "animate-spin" : ""}>
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "animate-spin" : ""}>
               <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
             {loading ? "Loading..." : "Refresh"}
@@ -601,12 +622,12 @@ export default function AdminPage() {
         {/* Tab Navigation */}
         <div className="flex gap-2 border-b border-border overflow-x-auto">
           {([
-            { id: "users", label: "Users", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-            { id: "logs", label: "Logs", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
-            { id: "leaves", label: "Leaves", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
-            { id: "scheduled", label: "Scheduled", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
-            { id: "holidays", label: "Holidays", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v6"/><path d="M4.9 9.5A9 9 0 0 1 12 8a9 9 0 0 1 7.1 1.5"/><path d="M3 22V12a9 9 0 0 1 18 0v10"/><line x1="3" y1="22" x2="21" y2="22"/></svg> },
-            { id: "invites", label: "Invites", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
+            { id: "users", label: "Users", icon: <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+            { id: "logs", label: "Logs", icon: <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
+            { id: "leaves", label: "Leaves", icon: <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
+            { id: "scheduled", label: "Scheduled", icon: <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+            { id: "holidays", label: "Holidays", icon: <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v6"/><path d="M4.9 9.5A9 9 0 0 1 12 8a9 9 0 0 1 7.1 1.5"/><path d="M3 22V12a9 9 0 0 1 18 0v10"/><line x1="3" y1="22" x2="21" y2="22"/></svg> },
+            { id: "invites", label: "Invites", icon: <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
           ] as const).map((tab) => (
             <button
               key={tab.id}
@@ -632,7 +653,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                       </svg>
                     </div>
@@ -654,7 +675,7 @@ export default function AdminPage() {
                       onClick={openDefaultsEditor}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors"
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                       </svg>
                       Edit
@@ -668,8 +689,8 @@ export default function AdminPage() {
             <div className="bg-card border border-border rounded-2xl p-4">
               <div className="flex flex-wrap gap-3 items-end">
                 <div className="flex-1 min-w-[200px]">
-                  <label className="block text-xs font-medium text-muted mb-1.5">Search</label>
-                  <input
+                  <label htmlFor="admin-search" className="block text-xs font-medium text-muted mb-1.5">Search</label>
+                  <input id="admin-search"
                     type="text"
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
@@ -678,8 +699,8 @@ export default function AdminPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted mb-1.5">Automation</label>
-                  <select
+                  <label htmlFor="admin-automation" className="block text-xs font-medium text-muted mb-1.5">Automation</label>
+                  <select id="admin-automation"
                     value={automationFilter}
                     onChange={(e) => setAutomationFilter(e.target.value as typeof automationFilter)}
                     className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
@@ -692,84 +713,74 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Users Table */}
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="bg-card border border-border rounded-2xl p-8 text-center">
-                <p className="text-sm text-muted">No users found</p>
-              </div>
-            ) : (
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-background border-b border-border">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">User</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Role</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Automation</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Check-in</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Check-out</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Last Activity</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {filteredUsers.map((user) => (
-                        <tr key={user.id} className="hover:bg-background/50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="text-sm font-medium">{user.name}</p>
-                              <p className="text-xs text-muted">{user.email}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
-                              user.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted/10 text-muted"
-                            }`}>
-                              {user.role}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
-                              user.automationEnabled ? "bg-success/10 text-success" : "bg-muted/10 text-muted"
-                            }`}>
-                              {user.automationEnabled ? "Enabled" : "Disabled"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-muted">
-                            {user.checkinStart && user.checkinEnd
-                              ? `${user.checkinStart} - ${user.checkinEnd}`
-                              : "Default"}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-muted">
-                            {user.checkoutStart && user.checkoutEnd
-                              ? `${user.checkoutStart} - ${user.checkoutEnd}`
-                              : "Default"}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted">
-                            {user.lastActivity ? new Date(user.lastActivity).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "Never"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+            {/* Users table */}
+            <TableCard title="Users" count={filteredUsers.length}>
+              <Table label="All users and their automation settings">
+                <THead>
+                  <Th>User</Th>
+                  <Th>Role</Th>
+                  <Th>Automation</Th>
+                  <Th>Check-in</Th>
+                  <Th>Check-out</Th>
+                  <Th>Last activity</Th>
+                </THead>
+                <TBody>
+                  {loading ? (
+                    <TableLoading colSpan={6} />
+                  ) : filteredUsers.length === 0 ? (
+                    <TableEmpty colSpan={6} message="No users found" />
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <Tr key={user.id}>
+                        <Td>
+                          <span className="block font-medium whitespace-nowrap">{user.name}</span>
+                          <span className="block text-xs text-muted">{user.email}</span>
+                        </Td>
+                        <Td>
+                          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
+                            user.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted/10 text-muted"
+                          }`}>
+                            {user.role}
+                          </span>
+                        </Td>
+                        <Td>
+                          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
+                            user.automationEnabled ? "bg-success/10 text-success" : "bg-muted/10 text-muted"
+                          }`}>
+                            {user.automationEnabled ? "Enabled" : "Disabled"}
+                          </span>
+                        </Td>
+                        <Td className="text-muted whitespace-nowrap tabular-nums">
+                          {user.checkinStart && user.checkinEnd
+                            ? `${user.checkinStart} – ${user.checkinEnd}`
+                            : "Default"}
+                        </Td>
+                        <Td className="text-muted whitespace-nowrap tabular-nums">
+                          {user.checkoutStart && user.checkoutEnd
+                            ? `${user.checkoutStart} – ${user.checkoutEnd}`
+                            : "Default"}
+                        </Td>
+                        <Td className="text-xs text-muted whitespace-nowrap">
+                          {user.lastActivity
+                            ? new Date(user.lastActivity).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                            : "Never"}
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </TBody>
+              </Table>
+            </TableCard>
 
             {/* Edit Global Defaults Modal */}
-            {editingDefaults && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-[fadeIn_150ms_ease-out]"
-                onClick={cancelEditing}
-              >
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-                <div
-                  className="relative bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-xl animate-[scaleIn_150ms_ease-out]"
-                  onClick={(e) => e.stopPropagation()}
-                >
+            <Modal
+              open={editingDefaults}
+              onClose={cancelEditing}
+              title="Edit Default Schedule Times"
+              maxWidth="md"
+            >
+              <div>
+                <div>
                   <h3 className="text-base font-semibold mb-1">Edit Default Schedule Times</h3>
                   <p className="text-xs text-muted mb-5">
                     These defaults apply to all users who haven&apos;t set custom times.
@@ -823,7 +834,7 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
-            )}
+            </Modal>
           </div>
         )}
 
@@ -841,8 +852,8 @@ export default function AdminPage() {
                   <DateInput value={logsDate} onChange={setLogsDate} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted mb-1.5">Action</label>
-                  <select
+                  <label htmlFor="admin-action" className="block text-xs font-medium text-muted mb-1.5">Action</label>
+                  <select id="admin-action"
                     value={logsAction}
                     onChange={(e) => setLogsAction(e.target.value)}
                     className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
@@ -853,8 +864,8 @@ export default function AdminPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted mb-1.5">Status</label>
-                  <select
+                  <label htmlFor="admin-status" className="block text-xs font-medium text-muted mb-1.5">Status</label>
+                  <select id="admin-status"
                     value={logsStatus}
                     onChange={(e) => setLogsStatus(e.target.value)}
                     className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
@@ -891,54 +902,64 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Logs List */}
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : logs.length === 0 ? (
-              <div className="bg-card border border-border rounded-2xl p-8 text-center">
-                <p className="text-sm text-muted">No logs found</p>
-              </div>
-            ) : (
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                <div className="divide-y divide-border">
-                  {logs.map((log) => (
-                    <div key={log.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-background/50 transition-colors">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        log.action === "CHECK_IN" ? "bg-success/10" : "bg-danger/10"
-                      }`}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={log.action === "CHECK_IN" ? "var(--success)" : "var(--danger)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          {log.action === "CHECK_IN" ? (
-                            <><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></>
-                          ) : (
-                            <><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></>
-                          )}
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{log.userName}</p>
-                        <p className="text-xs text-muted">{log.userEmail}</p>
-                      </div>
-                      <div className="text-center shrink-0">
-                        <p className="text-sm font-medium">{log.action === "CHECK_IN" ? "Check-in" : "Check-out"}</p>
-                        <p className="text-xs text-muted">{new Date(log.executedAt).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
-                          log.status === "SUCCESS" ? "bg-success/10 text-success" : log.status === "FAILED" ? "bg-danger/10 text-danger" : "bg-muted/10 text-muted"
-                        }`}>
-                          {log.status === "SUCCESS" ? "Done" : log.status === "FAILED" ? "Failed" : "Skipped"}
-                        </span>
-                        {(log.skipReason || log.errorMessage) && (
-                          <p className="text-xs text-muted mt-0.5 max-w-[160px] truncate">{log.skipReason || log.errorMessage}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Logs table */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <Table label="Activity logs for all users">
+                <THead>
+                  <Th>User</Th>
+                  <Th>Action</Th>
+                  <Th>Date</Th>
+                  <Th>Time</Th>
+                  <Th>Status</Th>
+                  <Th>Details</Th>
+                </THead>
+                <TBody>
+                  {loading ? (
+                    <TableLoading colSpan={6} />
+                  ) : logs.length === 0 ? (
+                    <TableEmpty colSpan={6} message="No logs found" />
+                  ) : (
+                    logs.map((log) => {
+                      const at = new Date(log.executedAt);
+                      return (
+                        <Tr key={log.id}>
+                          <Td>
+                            <span className="block font-medium whitespace-nowrap">{log.userName}</span>
+                            <span className="block text-xs text-muted">{log.userEmail}</span>
+                          </Td>
+                          <Td>
+                            <span className="flex items-center gap-2.5">
+                              <AttendanceBadge action={log.action as "CHECK_IN"} />
+                              <span className="font-medium whitespace-nowrap">
+                                {log.action === "CHECK_IN" ? "Check-in" : "Check-out"}
+                              </span>
+                            </span>
+                          </Td>
+                          <Td className="text-muted whitespace-nowrap">
+                            {at.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                          </Td>
+                          <Td className="text-muted whitespace-nowrap tabular-nums">
+                            {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                          </Td>
+                          <Td>
+                            <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
+                              log.status === "SUCCESS" ? "bg-success/10 text-success" : log.status === "FAILED" ? "bg-danger/10 text-danger" : "bg-warning/10 text-warning"
+                            }`}>
+                              {log.status === "SUCCESS" ? "Done" : log.status === "FAILED" ? "Failed" : "Skipped"}
+                            </span>
+                          </Td>
+                          <Td className="text-xs text-muted">
+                            <span className="block max-w-[220px] truncate" title={log.skipReason || log.errorMessage || ""}>
+                              {log.skipReason || log.errorMessage || "—"}
+                            </span>
+                          </Td>
+                        </Tr>
+                      );
+                    })
+                  )}
+                </TBody>
+              </Table>
+            </div>
 
             {/* Pagination */}
             {logsTotalPages > 1 && (
@@ -952,7 +973,7 @@ export default function AdminPage() {
                   disabled={logsPage <= 1}
                   className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-border rounded-xl disabled:opacity-40 hover:bg-card transition-colors"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                   Previous
                 </button>
                 <span className="text-xs text-muted">Page {logsPage} of {logsTotalPages}</span>
@@ -966,7 +987,7 @@ export default function AdminPage() {
                   className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-border rounded-xl disabled:opacity-40 hover:bg-card transition-colors"
                 >
                   Next
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
               </div>
             )}
@@ -1011,59 +1032,62 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Leaves List */}
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : leaves.length === 0 ? (
-              <div className="bg-card border border-border rounded-2xl p-8 text-center">
-                <p className="text-sm text-muted">No leaves found</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="text-sm text-muted px-2">
-                  {leaves.length} {leaves.length === 1 ? "leave" : "leaves"} scheduled
-                </div>
-                <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                  <div className="divide-y divide-border">
-                    {leaves.map((leave) => (
-                      <div key={leave.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-background/50 transition-colors">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-muted/10">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{leave.userName}</p>
-                          <p className="text-xs text-muted">{leave.userEmail}</p>
-                        </div>
-                        <div className="text-center shrink-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium">{new Date(leave.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
-                            <span
-                              className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                                (leave.type ?? "full") === "full"
-                                  ? "bg-danger/10 text-danger"
-                                  : "bg-primary/10 text-primary"
-                              }`}
-                            >
-                              {LEAVE_TYPE_LABELS[leave.type ?? "full"]}
-                            </span>
-                            {leave.windowStart && leave.windowEnd && (
-                              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-muted/10 text-muted">
-                                {leave.windowStart}–{leave.windowEnd}
-                              </span>
-                            )}
-                          </div>
-                          {leave.reason && <p className="text-xs text-muted">{leave.reason}</p>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Leaves table */}
+            <TableCard title="Leave Records" count={leaves.length}>
+              <Table label="Leave records for all users">
+                <THead>
+                  <Th>User</Th>
+                  <Th>Date</Th>
+                  <Th>Type</Th>
+                  <Th>Custom times</Th>
+                  <Th>Reason</Th>
+                </THead>
+                <TBody>
+                  {loading ? (
+                    <TableLoading colSpan={5} />
+                  ) : leaves.length === 0 ? (
+                    <TableEmpty colSpan={5} message="No leaves found" />
+                  ) : (
+                    leaves.map((leave) => (
+                      <Tr key={leave.id} muted={leave.date < todayISO}>
+                        <Td>
+                          <span className="block font-medium whitespace-nowrap">{leave.userName}</span>
+                          <span className="block text-xs text-muted">{leave.userEmail}</span>
+                        </Td>
+                        <Td className="text-muted whitespace-nowrap">
+                          {new Date(leave.date + "T00:00").toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </Td>
+                        <Td>
+                          <span
+                            className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
+                              (leave.type ?? "full") === "full"
+                                ? "bg-danger/10 text-danger"
+                                : "bg-primary/10 text-primary"
+                            }`}
+                          >
+                            {LEAVE_TYPE_LABELS[leave.type ?? "full"]}
+                          </span>
+                        </Td>
+                        <Td className="text-muted whitespace-nowrap tabular-nums">
+                          {leave.windowStart && leave.windowEnd
+                            ? `${leave.windowStart}–${leave.windowEnd}`
+                            : "—"}
+                        </Td>
+                        <Td className="text-xs text-muted">
+                          <span className="block max-w-[200px] truncate" title={leave.reason || ""}>
+                            {leave.reason || "—"}
+                          </span>
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </TBody>
+              </Table>
+            </TableCard>
           </div>
         )}
 
@@ -1077,8 +1101,8 @@ export default function AdminPage() {
                   <UserSelect value={scheduledUserId} onChange={setScheduledUserId} users={users} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted mb-1.5">Action</label>
-                  <select
+                  <label htmlFor="admin-action-2" className="block text-xs font-medium text-muted mb-1.5">Action</label>
+                  <select id="admin-action-2"
                     value={scheduledAction}
                     onChange={(e) => setScheduledAction(e.target.value)}
                     className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
@@ -1090,8 +1114,8 @@ export default function AdminPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted mb-1.5">Status</label>
-                  <select
+                  <label htmlFor="admin-status-2" className="block text-xs font-medium text-muted mb-1.5">Status</label>
+                  <select id="admin-status-2"
                     value={scheduledStatus}
                     onChange={(e) => setScheduledStatus(e.target.value)}
                     className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
@@ -1123,72 +1147,78 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Scheduled Actions List */}
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : scheduledActions.length === 0 ? (
-              <div className="bg-card border border-border rounded-2xl p-8 text-center">
-                <p className="text-sm text-muted">No scheduled actions found</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="text-sm text-muted px-2">
-                  {scheduledActions.length} {scheduledActions.length === 1 ? "action" : "actions"}
-                </div>
-                <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                  <div className="divide-y divide-border">
-                    {scheduledActions.map((action, idx) => (
-                      <div key={idx} className="flex items-center gap-3 px-5 py-3.5 hover:bg-background/50 transition-colors">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                          action.action === "checkin" ? "bg-success/10" : action.action === "checkout" ? "bg-danger/10" : "bg-muted/10"
-                        }`}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={action.action === "checkin" ? "var(--success)" : action.action === "checkout" ? "var(--danger)" : "var(--muted)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            {action.action === "checkin" ? (
-                              <><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></>
-                            ) : action.action === "checkout" ? (
-                              <><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></>
-                            ) : (
-                              <><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>
-                            )}
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{action.userName}</p>
-                          <p className="text-xs text-muted">{action.userEmail}</p>
-                        </div>
-                        <div className="text-center shrink-0">
-                          <p className="text-sm font-medium capitalize">{action.action.replace("_", " ")}</p>
-                          <p className="text-xs text-muted">{new Date(action.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} at {action.targetTime}</p>
-                        </div>
-                        <div className="shrink-0">
-                          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
-                            !action.executed ? "bg-muted/10 text-muted"
-                              : action.result === "success" ? "bg-success/10 text-success"
-                              : action.result === "skipped" ? "bg-warning/10 text-warning"
-                              : action.result === "failed" ? "bg-danger/10 text-danger"
-                              : action.result === "missed" ? "bg-danger/10 text-danger"
-                              : action.result === "on_leave" ? "bg-primary/10 text-primary"
-                              : action.result === "holiday" ? "bg-primary/10 text-primary"
-                              : "bg-success/10 text-success"
-                          }`}>
-                            {!action.executed ? "Pending"
-                              : action.result === "success" ? "Success"
-                              : action.result === "skipped" ? "Skipped"
-                              : action.result === "failed" ? "Failed"
-                              : action.result === "missed" ? "Missed"
-                              : action.result === "on_leave" ? "On Leave"
-                              : action.result === "holiday" ? "Holiday"
-                              : "Executed"}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Scheduled actions table */}
+            <TableCard title="Scheduled Actions" count={scheduledActions.length}>
+              <Table label="Scheduled check-in and check-out actions for all users">
+                <THead>
+                  <Th>User</Th>
+                  <Th>Action</Th>
+                  <Th>Date</Th>
+                  <Th>Target</Th>
+                  <Th>Result</Th>
+                </THead>
+                <TBody>
+                  {loading ? (
+                    <TableLoading colSpan={5} />
+                  ) : scheduledActions.length === 0 ? (
+                    <TableEmpty colSpan={5} message="No scheduled actions found" />
+                  ) : (
+                    scheduledActions.map((action, idx) => {
+                      const isAttendance = action.action === "checkin" || action.action === "checkout";
+                      return (
+                        <Tr key={idx}>
+                          <Td>
+                            <span className="block font-medium whitespace-nowrap">{action.userName}</span>
+                            <span className="block text-xs text-muted">{action.userEmail}</span>
+                          </Td>
+                          <Td>
+                            <span className="flex items-center gap-2.5">
+                              {isAttendance ? (
+                                <AttendanceBadge action={action.action as "checkin"} />
+                              ) : (
+                                <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-muted/10">
+                                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                                  </svg>
+                                </span>
+                              )}
+                              <span className="font-medium whitespace-nowrap capitalize">
+                                {action.action.replace("_", " ")}
+                              </span>
+                            </span>
+                          </Td>
+                          <Td className="text-muted whitespace-nowrap">
+                            {new Date(action.date + "T00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                          </Td>
+                          <Td className="text-muted whitespace-nowrap tabular-nums">{action.targetTime}</Td>
+                          <Td>
+                            <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
+                              !action.executed ? "bg-muted/10 text-muted"
+                                : action.result === "success" ? "bg-success/10 text-success"
+                                : action.result === "skipped" ? "bg-warning/10 text-warning"
+                                : action.result === "failed" ? "bg-danger/10 text-danger"
+                                : action.result === "missed" ? "bg-danger/10 text-danger"
+                                : action.result === "on_leave" ? "bg-primary/10 text-primary"
+                                : action.result === "holiday" ? "bg-primary/10 text-primary"
+                                : "bg-success/10 text-success"
+                            }`}>
+                              {!action.executed ? "Pending"
+                                : action.result === "success" ? "Success"
+                                : action.result === "skipped" ? "Skipped"
+                                : action.result === "failed" ? "Failed"
+                                : action.result === "missed" ? "Missed"
+                                : action.result === "on_leave" ? "On Leave"
+                                : action.result === "holiday" ? "Holiday"
+                                : "Executed"}
+                            </span>
+                          </Td>
+                        </Tr>
+                      );
+                    })
+                  )}
+                </TBody>
+              </Table>
+            </TableCard>
 
             {/* Pagination */}
             {scheduledTotalPages > 1 && (
@@ -1202,7 +1232,7 @@ export default function AdminPage() {
                   disabled={scheduledPage <= 1}
                   className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-border rounded-xl disabled:opacity-40 hover:bg-card transition-colors"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                   Previous
                 </button>
                 <span className="text-xs text-muted">Page {scheduledPage} of {scheduledTotalPages}</span>
@@ -1216,7 +1246,7 @@ export default function AdminPage() {
                   className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-border rounded-xl disabled:opacity-40 hover:bg-card transition-colors"
                 >
                   Next
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
               </div>
             )}
@@ -1235,8 +1265,8 @@ export default function AdminPage() {
 
               <form onSubmit={addHoliday} className="flex flex-wrap gap-3 items-end">
                 <div className="flex-1 min-w-[200px]">
-                  <label className="block text-xs font-medium text-muted mb-1.5">Name</label>
-                  <input
+                  <label htmlFor="admin-name" className="block text-xs font-medium text-muted mb-1.5">Name</label>
+                  <input id="admin-name"
                     type="text"
                     value={holidayName}
                     onChange={(e) => setHolidayName(e.target.value)}
@@ -1269,118 +1299,94 @@ export default function AdminPage() {
               </form>
             </div>
 
-            {/* Holiday list */}
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-                <h3 className="text-sm font-semibold">Holidays</h3>
-                <span className="text-xs text-muted">{holidays.length} total</span>
-              </div>
-
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : holidays.length === 0 ? (
-                <p className="text-sm text-muted text-center py-10">No holidays configured</p>
-              ) : (
-                <div className="divide-y divide-border">
-                  {holidays.map((holiday) => {
-                    const isPast = holiday.date < todayISO;
-                    return (
-                      <div
-                        key={holiday.id}
-                        className={`flex items-center gap-3 px-5 py-3.5 group ${isPast ? "opacity-60" : ""}`}
-                      >
-                        <div className="w-9 h-9 bg-success/10 rounded-lg flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-success">
-                            {new Date(holiday.date + "T00:00").getDate()}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium truncate">{holiday.name}</p>
-                            {isPast && (
-                              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-muted/10 text-muted shrink-0">
-                                past
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted mt-0.5">
+            {/* Holiday table */}
+            <TableCard title="Holidays" count={holidays.length}>
+              <Table label="Public holidays">
+                <THead>
+                  <Th>Date</Th>
+                  <Th>Holiday</Th>
+                  <Th>Status</Th>
+                  <Th align="right">
+                    <span className="sr-only">Actions</span>
+                  </Th>
+                </THead>
+                <TBody>
+                  {loading ? (
+                    <TableLoading colSpan={4} />
+                  ) : holidays.length === 0 ? (
+                    <TableEmpty colSpan={4} message="No holidays configured" />
+                  ) : (
+                    holidays.map((holiday) => {
+                      const isPast = holiday.date < todayISO;
+                      return (
+                        <Tr key={holiday.id} muted={isPast}>
+                          <Td className="text-muted whitespace-nowrap">
                             {new Date(holiday.date + "T00:00").toLocaleDateString("en-IN", {
-                              weekday: "long",
+                              weekday: "short",
                               day: "numeric",
-                              month: "long",
+                              month: "short",
                               year: "numeric",
                             })}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setHolidayDeleteConfirm(holiday)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all"
-                          aria-label={`Remove ${holiday.name}`}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                          </svg>
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                          </Td>
+                          <Td className="font-medium">{holiday.name}</Td>
+                          <Td>
+                            <span
+                              className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
+                                isPast ? "bg-muted/10 text-muted" : "bg-success/10 text-success"
+                              }`}
+                            >
+                              {isPast ? "Past" : "Upcoming"}
+                            </span>
+                          </Td>
+                          <Td className="text-right">
+                            <button
+                              onClick={() => setHolidayDeleteConfirm(holiday)}
+                              className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all"
+                              aria-label={`Remove ${holiday.name}`}
+                            >
+                              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                              </svg>
+                            </button>
+                          </Td>
+                        </Tr>
+                      );
+                    })
+                  )}
+                </TBody>
+              </Table>
+            </TableCard>
 
-            {/* Delete confirmation */}
-            {holidayDeleteConfirm && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-[fadeIn_150ms_ease-out]"
-                onClick={() => setHolidayDeleteConfirm(null)}
-              >
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-                <div
-                  className="relative bg-card border border-border rounded-2xl p-6 w-full max-w-xs shadow-xl animate-[scaleIn_150ms_ease-out]"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 bg-danger/10">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                      </svg>
-                    </div>
-                    <h3 className="text-base font-semibold">Remove Holiday</h3>
-                    <p className="text-sm text-muted mt-1 mb-6">
-                      Attendance will resume as normal on{" "}
-                      <span className="font-medium text-foreground">
-                        {new Date(holidayDeleteConfirm.date + "T00:00").toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                      .
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setHolidayDeleteConfirm(null)}
-                      className="flex-1 py-2.5 border border-border rounded-xl font-medium text-sm hover:bg-background transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => {
-                        const date = holidayDeleteConfirm.date;
-                        setHolidayDeleteConfirm(null);
-                        removeHoliday(date);
-                      }}
-                      className="flex-1 py-2.5 text-white rounded-xl font-medium text-sm transition-all bg-danger hover:bg-red-600"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <ConfirmDialog
+              open={holidayDeleteConfirm !== null}
+              onCancel={() => setHolidayDeleteConfirm(null)}
+              onConfirm={() => {
+                const date = holidayDeleteConfirm?.date;
+                setHolidayDeleteConfirm(null);
+                if (date) removeHoliday(date);
+              }}
+              title="Remove Holiday"
+              confirmLabel="Remove"
+              message={
+                <>
+                  Attendance will resume as normal for everyone on{" "}
+                  <span className="font-medium text-foreground">
+                    {holidayDeleteConfirm &&
+                      new Date(holidayDeleteConfirm.date + "T00:00").toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                  </span>
+                  .
+                </>
+              }
+              icon={
+                <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              }
+            />
           </div>
         )}
 
@@ -1396,8 +1402,8 @@ export default function AdminPage() {
 
               <form onSubmit={createInvite} className="flex flex-wrap gap-3 items-end">
                 <div className="flex-1 min-w-[220px]">
-                  <label className="block text-xs font-medium text-muted mb-1.5">Email address</label>
-                  <input
+                  <label htmlFor="admin-email-address" className="block text-xs font-medium text-muted mb-1.5">Email address</label>
+                  <input id="admin-email-address"
                     type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
@@ -1431,61 +1437,64 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* Invite list */}
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-                <h3 className="text-sm font-semibold">Invites</h3>
-                <span className="text-xs text-muted">{invites.length} total</span>
-              </div>
-
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : invites.length === 0 ? (
-                <p className="text-sm text-muted text-center py-10">No invites yet</p>
-              ) : (
-                <div className="divide-y divide-border">
-                  {invites.map((invite) => (
-                    <div key={invite.token} className="flex items-center gap-3 px-5 py-3.5">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">{invite.email}</p>
+            {/* Invite table */}
+            <TableCard title="Invites" count={invites.length}>
+              <Table label="Registration invites">
+                <THead>
+                  <Th>Email</Th>
+                  <Th>Status</Th>
+                  <Th>Invited by</Th>
+                  <Th>Expires / used</Th>
+                  <Th align="right">
+                    <span className="sr-only">Actions</span>
+                  </Th>
+                </THead>
+                <TBody>
+                  {loading ? (
+                    <TableLoading colSpan={5} />
+                  ) : invites.length === 0 ? (
+                    <TableEmpty colSpan={5} message="No invites yet" />
+                  ) : (
+                    invites.map((invite) => (
+                      <Tr key={invite.token} muted={invite.status !== "pending"}>
+                        <Td className="font-medium">{invite.email}</Td>
+                        <Td>
                           <span
-                            className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${INVITE_STATUS_STYLES[invite.status]}`}
+                            className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${INVITE_STATUS_STYLES[invite.status]}`}
                           >
                             {invite.status}
                           </span>
-                        </div>
-                        <p className="text-xs text-muted mt-0.5">
-                          Invited by {invite.invitedByName} ·{" "}
+                        </Td>
+                        <Td className="text-muted whitespace-nowrap">{invite.invitedByName}</Td>
+                        <Td className="text-muted whitespace-nowrap">
                           {invite.usedAt
                             ? `used ${new Date(invite.usedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
-                            : `expires ${new Date(invite.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`}
-                        </p>
-                      </div>
-
-                      {invite.status === "pending" && (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => copyInviteUrl(invite.token)}
-                            className="px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors"
-                          >
-                            Copy link
-                          </button>
-                          <button
-                            onClick={() => revokeInvite(invite.token)}
-                            className="px-3 py-1.5 text-xs font-medium text-danger border border-danger/30 rounded-lg hover:bg-danger/10 transition-colors"
-                          >
-                            Revoke
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                            : new Date(invite.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        </Td>
+                        <Td className="text-right">
+                          {invite.status === "pending" && (
+                            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                              <button
+                                onClick={() => copyInviteUrl(invite.token)}
+                                className="px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors"
+                              >
+                                Copy link
+                              </button>
+                              <button
+                                onClick={() => revokeInvite(invite.token)}
+                                className="px-3 py-1.5 text-xs font-medium text-danger border border-danger/30 rounded-lg hover:bg-danger/10 transition-colors"
+                              >
+                                Revoke
+                              </button>
+                            </span>
+                          )}
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </TBody>
+              </Table>
+            </TableCard>
           </div>
         )}
       </div>

@@ -15,7 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HRMS Auto Check-in",
+  // Each route supplies its own name; the template keeps the app name in the
+  // tab without every page having to repeat it.
+  title: {
+    default: "HRMS Auto Check-in",
+    template: "%s · HRMS Auto Check-in",
+  },
   description: "Automated HRMS check-in/check-out scheduler",
   icons: {
     icon: "/favicon.png",

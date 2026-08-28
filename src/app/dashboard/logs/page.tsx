@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import DateInput from "@/components/ui/DateInput";
+import { Table, THead, Th, TBody, Tr, Td, TableEmpty, TableLoading } from "@/components/ui/Table";
+import { AttendanceBadge } from "@/components/ui/icons";
 
 interface LogEntry {
   id: string;
@@ -91,7 +93,7 @@ export default function LogsPage() {
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border rounded-xl hover:bg-card disabled:opacity-50 transition-colors"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "animate-spin" : ""}>
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "animate-spin" : ""}>
               <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
             {loading ? "Loading..." : "Refresh"}
@@ -109,8 +111,8 @@ export default function LogsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted mb-1.5">Action</label>
-              <select
+              <label htmlFor="logs-action" className="block text-xs font-medium text-muted mb-1.5">Action</label>
+              <select id="logs-action"
                 value={filterAction}
                 onChange={(e) => setFilterAction(e.target.value)}
                 className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-card"
@@ -121,8 +123,8 @@ export default function LogsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted mb-1.5">Status</label>
-              <select
+              <label htmlFor="logs-status" className="block text-xs font-medium text-muted mb-1.5">Status</label>
+              <select id="logs-status"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-card"
@@ -150,79 +152,77 @@ export default function LogsPage() {
           </div>
         </div>
 
-        {/* Logs List */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : logs.length === 0 ? (
-          <div className="bg-card border border-border rounded-2xl p-8 text-center">
-            <div className="w-10 h-10 bg-muted/10 rounded-full flex items-center justify-center mx-auto mb-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-              </svg>
-            </div>
-            <p className="text-sm text-muted">No logs found</p>
-          </div>
-        ) : (
-          <div className="bg-card border border-border rounded-2xl overflow-hidden">
-            <div className="divide-y divide-border">
-              {logs.map((log) => (
-                <div key={log.id} className="flex items-center gap-3 px-5 py-3.5">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      log.action === "CHECK_IN" ? "bg-success/10" : "bg-danger/10"
-                    }`}
-                  >
-                    <svg
-                      width="14" height="14" viewBox="0 0 24 24" fill="none"
-                      stroke={log.action === "CHECK_IN" ? "var(--success)" : "var(--danger)"}
-                      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                    >
-                      {log.action === "CHECK_IN" ? (
-                        <><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></>
-                      ) : (
-                        <><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></>
-                      )}
+        {/* Logs table */}
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <Table label="Your check-in and check-out history">
+            <THead>
+              <Th>Action</Th>
+              <Th>Date</Th>
+              <Th>Time</Th>
+              <Th>Status</Th>
+              <Th>Details</Th>
+            </THead>
+            <TBody>
+              {loading ? (
+                <TableLoading colSpan={5} />
+              ) : logs.length === 0 ? (
+                <TableEmpty
+                  colSpan={5}
+                  message="No logs found"
+                  icon={
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                     </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">
-                      {log.action === "CHECK_IN" ? "Check-in" : "Check-out"}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {new Date(log.executedAt).toLocaleString("en-IN", {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span
-                      className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
-                        log.status === "SUCCESS"
-                          ? "bg-success/10 text-success"
-                          : log.status === "FAILED"
-                          ? "bg-danger/10 text-danger"
-                          : "bg-muted/10 text-muted"
-                      }`}
-                    >
-                      {log.status === "SUCCESS" ? "Done" : log.status === "FAILED" ? "Failed" : "Skipped"}
-                    </span>
-                    {(log.skipReason || log.errorMessage) && (
-                      <p className="text-xs text-muted mt-0.5 max-w-[160px] truncate">
-                        {log.skipReason || log.errorMessage}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                  }
+                />
+              ) : (
+                logs.map((log) => {
+                  const at = new Date(log.executedAt);
+                  return (
+                    <Tr key={log.id}>
+                      <Td>
+                        <span className="flex items-center gap-2.5">
+                          <AttendanceBadge action={log.action as "CHECK_IN"} />
+                          <span className="font-medium whitespace-nowrap">
+                            {log.action === "CHECK_IN" ? "Check-in" : "Check-out"}
+                          </span>
+                        </span>
+                      </Td>
+                      <Td className="text-muted whitespace-nowrap">
+                        {at.toLocaleDateString("en-IN", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </Td>
+                      <Td className="text-muted whitespace-nowrap tabular-nums">
+                        {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                      </Td>
+                      <Td>
+                        <span
+                          className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
+                            log.status === "SUCCESS"
+                              ? "bg-success/10 text-success"
+                              : log.status === "FAILED"
+                                ? "bg-danger/10 text-danger"
+                                : "bg-warning/10 text-warning"
+                          }`}
+                        >
+                          {log.status === "SUCCESS" ? "Done" : log.status === "FAILED" ? "Failed" : "Skipped"}
+                        </span>
+                      </Td>
+                      <Td className="text-xs text-muted">
+                        <span className="block max-w-[240px] truncate" title={log.skipReason || log.errorMessage || ""}>
+                          {log.skipReason || log.errorMessage || "—"}
+                        </span>
+                      </Td>
+                    </Tr>
+                  );
+                })
+              )}
+            </TBody>
+          </Table>
+        </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
@@ -232,7 +232,7 @@ export default function LogsPage() {
               disabled={page <= 1}
               className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-border rounded-xl disabled:opacity-40 hover:bg-card transition-colors"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               Previous
             </button>
             <span className="text-xs text-muted">
@@ -244,7 +244,7 @@ export default function LogsPage() {
               className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-border rounded-xl disabled:opacity-40 hover:bg-card transition-colors"
             >
               Next
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           </div>
         )}

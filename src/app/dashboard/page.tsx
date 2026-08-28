@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/Modal";
+import { Table, THead, Th, TBody, Tr, Td, TableCard, TableEmpty } from "@/components/ui/Table";
+import { AttendanceBadge, AttendanceIcon, CheckInIcon, CheckOutIcon } from "@/components/ui/icons";
 
 interface Settings {
   hrmsEmail: string;
@@ -232,14 +235,14 @@ export default function DashboardPage() {
                 <>
                   {pausedReason && (
                     <div className="flex items-center gap-2 px-3 py-2.5 mb-3 bg-background rounded-xl">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                       <p className="text-xs text-muted">{pausedReason}</p>
                     </div>
                   )}
 
                   {today.leave && today.leave.type !== "full" && (
                     <div className="flex items-center gap-2 px-3 py-2.5 mb-3 bg-primary/10 rounded-xl">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                       <p className="text-xs text-primary">
                         {today.leave.type === "first_half" ? "First-half" : "Second-half"} leave —
                         times shifted below
@@ -255,23 +258,9 @@ export default function DashboardPage() {
                       const status = planStatus(plan, Boolean(pausedReason));
                       return (
                         <div key={key} className="flex items-center gap-3">
-                          <div
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                              key === "checkin" ? "bg-success/10" : "bg-danger/10"
-                            }`}
-                          >
-                            <svg
-                              width="14" height="14" viewBox="0 0 24 24" fill="none"
-                              stroke={key === "checkin" ? "var(--success)" : "var(--danger)"}
-                              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                            >
-                              {key === "checkin" ? (
-                                <><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></>
-                              ) : (
-                                <><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></>
-                              )}
-                            </svg>
-                          </div>
+                          {/* Muted when nothing will run — the row shouldn't
+                              look active on a day the scheduler sits out. */}
+                          <AttendanceBadge action={key} muted={!plan?.window} />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-xs">{label}</p>
                             {status.detail && (
@@ -314,7 +303,7 @@ export default function DashboardPage() {
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-1.5">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></svg>
+                  <CheckInIcon />
                   Check In
                 </span>
               )}
@@ -331,7 +320,7 @@ export default function DashboardPage() {
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-1.5">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+                  <CheckOutIcon />
                   Check Out
                 </span>
               )}
@@ -340,132 +329,93 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Activity */}
-        <div className="rounded-2xl p-5 bg-card border border-border">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-sm">Recent Activity</h3>
+        <TableCard
+          title="Recent Activity"
+          actions={
             <button
               onClick={fetchLogs}
               className="text-xs text-primary font-medium hover:underline"
             >
               Refresh
             </button>
-          </div>
-          {recentLogs.length === 0 ? (
-            <p className="text-sm text-muted text-center py-4">No activity yet</p>
-          ) : (
-            <div className="space-y-2.5">
-              {recentLogs.map((log, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 text-sm"
-                >
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      log.action === "CHECK_IN" ? "bg-success/10" : "bg-danger/10"
-                    }`}
-                  >
-                    <svg
-                      width="14" height="14" viewBox="0 0 24 24" fill="none"
-                      stroke={log.action === "CHECK_IN" ? "var(--success)" : "var(--danger)"}
-                      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                    >
-                      {log.action === "CHECK_IN" ? (
-                        <><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></>
-                      ) : (
-                        <><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></>
-                      )}
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-xs">
-                      {log.action === "CHECK_IN" ? "Check-in" : "Check-out"}
-                    </p>
-                    <p className="text-xs text-muted truncate">
-                      {new Date(log.executedAt).toLocaleString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      log.status === "SUCCESS"
-                        ? "bg-success/10 text-success"
-                        : log.status === "FAILED"
-                        ? "bg-danger/10 text-danger"
-                        : "bg-muted/10 text-muted"
-                    }`}
-                  >
-                    {log.status === "SUCCESS" ? "Done" : log.status === "FAILED" ? "Failed" : log.status}
-                    {log.skipReason ? ` · ${log.skipReason}` : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+          }
+        >
+          <Table label="Your most recent check-ins and check-outs">
+            <THead>
+              <Th>Action</Th>
+              <Th>Date</Th>
+              <Th>Time</Th>
+              <Th>Status</Th>
+            </THead>
+            <TBody>
+              {recentLogs.length === 0 ? (
+                <TableEmpty colSpan={4} message="No activity yet" />
+              ) : (
+                recentLogs.map((log, i) => {
+                  const at = new Date(log.executedAt);
+                  return (
+                    <Tr key={i}>
+                      <Td>
+                        <span className="flex items-center gap-2.5">
+                          <AttendanceBadge action={log.action as "CHECK_IN"} />
+                          <span className="font-medium whitespace-nowrap">
+                            {log.action === "CHECK_IN" ? "Check-in" : "Check-out"}
+                          </span>
+                        </span>
+                      </Td>
+                      <Td className="text-muted whitespace-nowrap">
+                        {at.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </Td>
+                      <Td className="text-muted whitespace-nowrap tabular-nums">
+                        {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                      </Td>
+                      <Td>
+                        <span
+                          className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
+                            log.status === "SUCCESS"
+                              ? "bg-success/10 text-success"
+                              : log.status === "FAILED"
+                                ? "bg-danger/10 text-danger"
+                                : "bg-warning/10 text-warning"
+                          }`}
+                          title={log.skipReason || ""}
+                        >
+                          {log.status === "SUCCESS"
+                            ? "Done"
+                            : log.status === "FAILED"
+                              ? "Failed"
+                              : "Skipped"}
+                        </span>
+                      </Td>
+                    </Tr>
+                  );
+                })
+              )}
+            </TBody>
+          </Table>
+        </TableCard>
 
-        {/* Confirmation Modal */}
-        {confirmAction && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-[fadeIn_150ms_ease-out]"
-            onClick={() => setConfirmAction(null)}
-          >
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-            <div
-              className="relative bg-card border border-border rounded-2xl p-6 w-full max-w-xs shadow-xl animate-[scaleIn_150ms_ease-out]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${
-                    confirmAction === "IN" ? "bg-success/10" : "bg-danger/10"
-                  }`}
-                >
-                  <svg
-                    width="24" height="24" viewBox="0 0 24 24" fill="none"
-                    stroke={confirmAction === "IN" ? "var(--success)" : "var(--danger)"}
-                    strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                  >
-                    {confirmAction === "IN" ? (
-                      <><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></>
-                    ) : (
-                      <><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></>
-                    )}
-                  </svg>
-                </div>
-                <h3 className="text-base font-semibold">
-                  Confirm {confirmAction === "IN" ? "Check In" : "Check Out"}
-                </h3>
-                <p className="text-sm text-muted mt-1 mb-6">
-                  This will record your {confirmAction === "IN" ? "check-in" : "check-out"} on HRMS right now.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setConfirmAction(null)}
-                  className="flex-1 py-2.5 border border-border rounded-xl font-medium text-sm hover:bg-background transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    const action = confirmAction;
-                    setConfirmAction(null);
-                    manualCheckin(action);
-                  }}
-                  className={`flex-1 py-2.5 text-white rounded-xl font-medium text-sm transition-all ${
-                    confirmAction === "IN" ? "bg-success hover:bg-green-600" : "bg-danger hover:bg-red-600"
-                  }`}
-                >
-                  Confirm
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmDialog
+          open={confirmAction !== null}
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={() => {
+            const action = confirmAction;
+            setConfirmAction(null);
+            if (action) manualCheckin(action);
+          }}
+          title={`Confirm ${confirmAction === "IN" ? "Check In" : "Check Out"}`}
+          message={`This will record your ${
+            confirmAction === "IN" ? "check-in" : "check-out"
+          } on HRMS right now.`}
+          tone={confirmAction === "IN" ? "success" : "danger"}
+          icon={
+            <AttendanceIcon
+              action={confirmAction ?? "IN"}
+              size={24}
+              stroke={confirmAction === "IN" ? "var(--success)" : "var(--danger)"}
+            />
+          }
+        />
       </div>
     </div>
   );

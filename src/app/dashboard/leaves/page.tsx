@@ -4,6 +4,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import DateInput from "@/components/ui/DateInput";
 import TimeInput from "@/components/ui/TimeInput";
+import { ConfirmDialog } from "@/components/ui/Modal";
+import {
+  Table,
+  THead,
+  Th,
+  TBody,
+  Tr,
+  Td,
+  TableCard,
+  TableEmpty,
+  TableLoading,
+} from "@/components/ui/Table";
+import { AttendanceBadge } from "@/components/ui/icons";
 
 type LeaveType = "full" | "first_half" | "second_half";
 
@@ -289,8 +302,8 @@ export default function LeavesPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted mb-1.5">Reason (optional)</label>
-                <input
+                <label htmlFor="leaves-reason-optional" className="block text-xs font-medium text-muted mb-1.5">Reason (optional)</label>
+                <input id="leaves-reason-optional"
                   type="text"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
@@ -363,33 +376,12 @@ export default function LeavesPage() {
                     { key: "checkout", label: "Check out", plan: preview.checkout },
                   ] as const).map(({ key, label, plan }) => (
                     <div key={key} className="flex items-center gap-2.5">
-                      <span
-                        className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
-                          plan.window
-                            ? key === "checkin"
-                              ? "bg-success/10"
-                              : "bg-danger/10"
-                            : "bg-muted/10"
-                        }`}
-                      >
-                        <svg
-                          width="12" height="12" viewBox="0 0 24 24" fill="none"
-                          stroke={
-                            !plan.window
-                              ? "var(--muted)"
-                              : key === "checkin"
-                                ? "var(--success)"
-                                : "var(--danger)"
-                          }
-                          strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                        >
-                          {key === "checkin" ? (
-                            <><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></>
-                          ) : (
-                            <><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></>
-                          )}
-                        </svg>
-                      </span>
+                      <AttendanceBadge
+                        action={key}
+                        size={24}
+                        iconSize={12}
+                        muted={!plan.window}
+                      />
                       <span className="text-xs flex-1 min-w-0">
                         {plan.window ? (
                           <>
@@ -466,7 +458,7 @@ export default function LeavesPage() {
                 leave on one achieves nothing. */}
             {newDate && holidayOn.has(newDate) && (
               <div className="flex items-start gap-2 px-3 py-2.5 bg-primary/10 border border-primary/20 rounded-xl">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 <p className="text-xs text-primary">
                   {holidayOn.get(newDate)} is already a public holiday — attendance is skipped for
                   everyone that day.
@@ -486,7 +478,7 @@ export default function LeavesPage() {
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-1.5">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Add Leave
                 </span>
               )}
@@ -494,187 +486,150 @@ export default function LeavesPage() {
           </form>
         </div>
 
-        {/* Leaves List */}
-        <div className="bg-card border border-border rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold">
-              {showPast ? "Past Leaves" : "Upcoming Leaves"}
-            </h3>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted">{visibleLeaves.length}</span>
-              {past.length > 0 && (
-                <button
-                  onClick={() => setShowPast((v) => !v)}
-                  className="px-2.5 py-1 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors"
-                >
-                  {showPast ? `Upcoming (${upcoming.length})` : `Past (${past.length})`}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : visibleLeaves.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-10 h-10 bg-muted/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-              </div>
-              <p className="text-sm text-muted">
-                {showPast ? "No past leave dates" : "No upcoming leave dates"}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {visibleLeaves.map((leave) => {
-                const type = leave.type ?? "full";
-                const isPast = leave.date < today;
-                return (
-                  <div
-                    key={leave.date}
-                    className={`flex items-center justify-between p-3 bg-background rounded-xl group ${
-                      isPast ? "opacity-60" : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-primary">
-                          {new Date(leave.date + "T00:00").getDate()}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-medium">{formatLeaveDate(leave.date)}</p>
-                          <span
-                            className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${TYPE_STYLES[type]}`}
-                          >
-                            {TYPE_LABELS[type]}
+        {/* Leaves table */}
+        <TableCard
+          title={showPast ? "Past Leaves" : "Upcoming Leaves"}
+          count={visibleLeaves.length}
+          actions={
+            past.length > 0 && (
+              <button
+                onClick={() => setShowPast((v) => !v)}
+                className="px-2.5 py-1 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors whitespace-nowrap"
+              >
+                {showPast ? `Upcoming (${upcoming.length})` : `Past (${past.length})`}
+              </button>
+            )
+          }
+        >
+          <Table label={showPast ? "Your past leave dates" : "Your upcoming leave dates"}>
+            <THead>
+              <Th>Date</Th>
+              <Th>Type</Th>
+              <Th>Scheduler</Th>
+              <Th>Reason</Th>
+              <Th align="right">
+                <span className="sr-only">Actions</span>
+              </Th>
+            </THead>
+            <TBody>
+              {loading ? (
+                <TableLoading colSpan={5} />
+              ) : visibleLeaves.length === 0 ? (
+                <TableEmpty
+                  colSpan={5}
+                  message={showPast ? "No past leave dates" : "No upcoming leave dates"}
+                  icon={
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                  }
+                />
+              ) : (
+                visibleLeaves.map((leave) => {
+                  const type = leave.type ?? "full";
+                  return (
+                    <Tr key={leave.date} muted={leave.date < today}>
+                      <Td className="whitespace-nowrap">
+                        <span className="font-medium">{formatLeaveDate(leave.date)}</span>
+                        {holidayOn.has(leave.date) && (
+                          <span className="ml-2 text-[11px] font-medium px-2 py-0.5 rounded-full bg-success/10 text-success">
+                            Also a holiday
                           </span>
-                          {holidayOn.has(leave.date) && (
-                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-success/10 text-success">
-                              Also a holiday
-                            </span>
-                          )}
-                        </div>
-                        {/* Spell out the consequence on the row too — the badge
-                            alone doesn't say which action moved. */}
-                        {type !== "full" && (
-                          <p className="text-xs text-muted mt-0.5">
-                            {type === "first_half" ? "Checks in" : "Checks out"}
+                        )}
+                      </Td>
+                      <Td>
+                        <span
+                          className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${TYPE_STYLES[type]}`}
+                        >
+                          {TYPE_LABELS[type]}
+                        </span>
+                      </Td>
+                      {/* The consequence, not just the category. */}
+                      <Td className="text-xs text-muted whitespace-nowrap">
+                        {type === "full" ? (
+                          "Skips the day"
+                        ) : (
+                          <>
+                            {type === "first_half" ? "Checks in" : "Checks out"}{" "}
                             {leave.windowStart && leave.windowEnd
-                              ? ` ${formatRange(leave.windowStart, leave.windowEnd)}`
-                              : " at your usual half-day time"}
-                          </p>
+                              ? formatRange(leave.windowStart, leave.windowEnd)
+                              : "at your usual half-day time"}
+                          </>
                         )}
-                        {leave.reason && (
-                          <p className="text-xs text-muted mt-0.5 truncate">{leave.reason}</p>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setDeleteConfirm(leave.date)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all"
-                      aria-label={`Remove leave on ${formatLeaveDate(leave.date)}`}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                      </svg>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                      </Td>
+                      <Td className="text-xs text-muted">
+                        <span className="block max-w-[200px] truncate" title={leave.reason || ""}>
+                          {leave.reason || "—"}
+                        </span>
+                      </Td>
+                      <Td className="text-right">
+                        <button
+                          onClick={() => setDeleteConfirm(leave.date)}
+                          className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all"
+                          aria-label={`Remove leave on ${formatLeaveDate(leave.date)}`}
+                        >
+                          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                          </svg>
+                        </button>
+                      </Td>
+                    </Tr>
+                  );
+                })
+              )}
+            </TBody>
+          </Table>
+        </TableCard>
 
         {/* Public Holidays — read-only, managed by admins */}
         {holidays.length > 0 && (
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-semibold">Upcoming Public Holidays</h3>
-                <p className="text-xs text-muted mt-0.5">
-                  Attendance is skipped for everyone on these days. No leave needed.
-                </p>
-              </div>
-              <span className="text-xs text-muted shrink-0 ml-3">{holidays.length}</span>
-            </div>
-            <div className="space-y-2">
-              {holidays.map((holiday) => (
-                <div
-                  key={holiday.date}
-                  className="flex items-center gap-3 p-3 bg-background rounded-xl"
-                >
-                  <div className="w-9 h-9 bg-success/10 rounded-lg flex items-center justify-center shrink-0">
-                    <span className="text-xs font-bold text-success">
-                      {new Date(holiday.date + "T00:00").getDate()}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{holiday.name}</p>
-                    <p className="text-xs text-muted mt-0.5">{formatLeaveDate(holiday.date)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <TableCard
+            title="Upcoming Public Holidays"
+            subtitle="Attendance is skipped for everyone on these days. No leave needed."
+            count={holidays.length}
+          >
+            <Table label="Upcoming public holidays">
+              <THead>
+                <Th>Date</Th>
+                <Th>Holiday</Th>
+              </THead>
+              <TBody>
+                {holidays.map((holiday) => (
+                  <Tr key={holiday.date}>
+                    <Td className="whitespace-nowrap text-muted">{formatLeaveDate(holiday.date)}</Td>
+                    <Td className="font-medium">{holiday.name}</Td>
+                  </Tr>
+                ))}
+              </TBody>
+            </Table>
+          </TableCard>
         )}
 
-        {/* Delete Confirmation Modal */}
-        {deleteConfirm && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-[fadeIn_150ms_ease-out]"
-            onClick={() => setDeleteConfirm(null)}
-          >
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-            <div
-              className="relative bg-card border border-border rounded-2xl p-6 w-full max-w-xs shadow-xl animate-[scaleIn_150ms_ease-out]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 bg-danger/10">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                  </svg>
-                </div>
-                <h3 className="text-base font-semibold">Remove Leave</h3>
-                <p className="text-sm text-muted mt-1 mb-6">
-                  Remove leave on{" "}
-                  <span className="font-medium text-foreground">
-                    {new Date(deleteConfirm + "T00:00").toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-                  ?
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeleteConfirm(null)}
-                  className="flex-1 py-2.5 border border-border rounded-xl font-medium text-sm hover:bg-background transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    const date = deleteConfirm;
-                    setDeleteConfirm(null);
-                    removeLeave(date);
-                  }}
-                  className="flex-1 py-2.5 text-white rounded-xl font-medium text-sm transition-all bg-danger hover:bg-red-600"
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmDialog
+          open={deleteConfirm !== null}
+          onCancel={() => setDeleteConfirm(null)}
+          onConfirm={() => {
+            const date = deleteConfirm;
+            setDeleteConfirm(null);
+            if (date) removeLeave(date);
+          }}
+          title="Remove Leave"
+          confirmLabel="Remove"
+          message={
+            <>
+              Attendance will run as normal on{" "}
+              <span className="font-medium text-foreground">
+                {deleteConfirm && formatLeaveDate(deleteConfirm)}
+              </span>
+              .
+            </>
+          }
+          icon={
+            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          }
+        />
       </div>
     </div>
   );
