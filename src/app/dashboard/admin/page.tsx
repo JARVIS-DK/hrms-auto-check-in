@@ -80,6 +80,19 @@ const INVITE_STATUS_STYLES: Record<Invite["status"], string> = {
   expired: "bg-danger/10 text-danger",
 };
 
+function formatHourString(hhmm: string | null | undefined): string {
+  if (!hhmm) return "—";
+  const [hours, minutes] = hhmm.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return hhmm;
+  const period = hours >= 12 ? "PM" : "AM";
+  const hour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
+function formatTimeRange(start: string | null | undefined, end: string | null | undefined): string {
+  return `${formatHourString(start)} – ${formatHourString(end)}`;
+}
+
 /**
  * Module scope, not nested in AdminPage. Defining a component inside another
  * component makes React see a brand-new type on every render and remount the
@@ -667,7 +680,7 @@ export default function AdminPage() {
                       <div key={window.label} className="text-center">
                         <p className="text-xs text-muted">{window.label}</p>
                         <p className="font-medium">
-                          {globalDefaults[window.start]} – {globalDefaults[window.end]}
+                          {formatTimeRange(globalDefaults[window.start], globalDefaults[window.end])}
                         </p>
                       </div>
                     ))}
@@ -752,12 +765,12 @@ export default function AdminPage() {
                         </Td>
                         <Td className="text-muted whitespace-nowrap tabular-nums">
                           {user.checkinStart && user.checkinEnd
-                            ? `${user.checkinStart} – ${user.checkinEnd}`
+                            ? formatTimeRange(user.checkinStart, user.checkinEnd)
                             : "Default"}
                         </Td>
                         <Td className="text-muted whitespace-nowrap tabular-nums">
                           {user.checkoutStart && user.checkoutEnd
-                            ? `${user.checkoutStart} – ${user.checkoutEnd}`
+                            ? formatTimeRange(user.checkoutStart, user.checkoutEnd)
                             : "Default"}
                         </Td>
                         <Td className="text-xs text-muted whitespace-nowrap">
@@ -1074,7 +1087,7 @@ export default function AdminPage() {
                         </Td>
                         <Td className="text-muted whitespace-nowrap tabular-nums">
                           {leave.windowStart && leave.windowEnd
-                            ? `${leave.windowStart}–${leave.windowEnd}`
+                            ? formatTimeRange(leave.windowStart, leave.windowEnd)
                             : "—"}
                         </Td>
                         <Td className="text-xs text-muted">
@@ -1190,7 +1203,7 @@ export default function AdminPage() {
                           <Td className="text-muted whitespace-nowrap">
                             {new Date(action.date + "T00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                           </Td>
-                          <Td className="text-muted whitespace-nowrap tabular-nums">{action.targetTime}</Td>
+                          <Td className="text-muted whitespace-nowrap tabular-nums">{formatHourString(action.targetTime)}</Td>
                           <Td>
                             <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
                               !action.executed ? "bg-muted/10 text-muted"

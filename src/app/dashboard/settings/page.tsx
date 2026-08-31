@@ -40,6 +40,19 @@ const TIME_KEYS = WINDOWS.flatMap((w) => [w.start, w.end]);
 
 const EMPTY_TIMES = Object.fromEntries(TIME_KEYS.map((k) => [k, ""])) as Record<TimeKey, string>;
 
+function formatHourString(hhmm: string | null | undefined): string {
+  if (!hhmm) return "—";
+  const [hours, minutes] = hhmm.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return hhmm;
+  const period = hours >= 12 ? "PM" : "AM";
+  const hour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
+function formatTimeRange(start: string | null | undefined, end: string | null | undefined): string {
+  return `${formatHourString(start)} – ${formatHourString(end)}`;
+}
+
 export default function SettingsPage() {
   const [hrmsEmail, setHrmsEmail] = useState("");
   const [hrmsPassword, setHrmsPassword] = useState("");
@@ -358,7 +371,7 @@ export default function SettingsPage() {
                 <label className="block text-xs font-medium text-muted">{window.label} Window</label>
                 <p className="text-[11px] text-muted/70 mb-2">
                   {window.hint}
-                  {defaults ? ` · default ${defaults[window.start]}–${defaults[window.end]}` : ""}
+                  {defaults ? ` · default ${formatTimeRange(defaults[window.start], defaults[window.end])}` : ""}
                 </p>
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
                   <div>

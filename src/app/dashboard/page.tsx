@@ -54,25 +54,38 @@ const RESULT_LABELS: Record<string, string> = {
   missed: "Missed",
 };
 
+function formatHourString(hhmm: string | null | undefined): string {
+  if (!hhmm) return "—";
+  const [hours, minutes] = hhmm.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return hhmm;
+  const period = hours >= 12 ? "PM" : "AM";
+  const hour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
+function formatTimeRange(start: string | null | undefined, end: string | null | undefined): string {
+  return `${formatHourString(start)} – ${formatHourString(end)}`;
+}
+
 /** Turns the raw plan into the one line a person actually wants to read. */
 function planStatus(plan: ActionPlan | null, paused: boolean) {
   if (!plan) return { label: "—", detail: "Not configured", style: "bg-muted/10 text-muted" };
   if (plan.result) {
     return {
       label: RESULT_LABELS[plan.result] ?? plan.result,
-      detail: plan.targetTime && plan.result === "success" ? `at ${plan.targetTime}` : "",
+      detail: plan.targetTime && plan.result === "success" ? `at ${formatHourString(plan.targetTime)}` : "",
       style: RESULT_STYLES[plan.result] ?? "bg-muted/10 text-muted",
     };
   }
   if (paused) return { label: "Paused", detail: "", style: "bg-muted/10 text-muted" };
   if (plan.targetTime) {
-    return { label: "Scheduled", detail: `at ${plan.targetTime}`, style: "bg-primary/10 text-primary" };
+    return { label: "Scheduled", detail: `at ${formatHourString(plan.targetTime)}`, style: "bg-primary/10 text-primary" };
   }
   if (plan.window) {
     // Before the day's row exists the exact minute hasn't been drawn yet.
     return {
       label: "Pending",
-      detail: `between ${plan.window.start}–${plan.window.end}`,
+      detail: `between ${formatTimeRange(plan.window.start, plan.window.end)}`,
       style: "bg-muted/10 text-muted",
     };
   }
