@@ -196,7 +196,7 @@ export default function LogsPage() {
                         })}
                       </Td>
                       <Td className="text-muted whitespace-nowrap tabular-nums">
-                        {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                        {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                       </Td>
                       <Td>
                         <span

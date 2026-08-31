@@ -762,7 +762,7 @@ export default function AdminPage() {
                         </Td>
                         <Td className="text-xs text-muted whitespace-nowrap">
                           {user.lastActivity
-                            ? new Date(user.lastActivity).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                            ? new Date(user.lastActivity).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })
                             : "Never"}
                         </Td>
                       </Tr>
@@ -939,7 +939,7 @@ export default function AdminPage() {
                             {at.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                           </Td>
                           <Td className="text-muted whitespace-nowrap tabular-nums">
-                            {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                            {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                           </Td>
                           <Td>
                             <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
