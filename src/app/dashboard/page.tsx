@@ -90,7 +90,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
 
   const fetchLogs = useCallback(() => {
-    fetch("/api/logs?limit=5")
+    fetch("/api/logs?limit=6")
       .then((r) => {
         if (!r.ok) return { logs: [] };
         return r.json();
