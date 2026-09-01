@@ -21,7 +21,7 @@ interface TableProps {
 export function Table({ children, label }: TableProps) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[540px]" aria-label={label}>
+      <table className="w-full min-w-0 sm:min-w-[540px]" aria-label={label}>
         {children}
       </table>
     </div>
@@ -146,12 +146,12 @@ export function TableCard({
 }) {
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-border">
+      <div className="flex flex-col gap-2 px-5 py-3.5 border-b border-border sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold">{title}</h3>
           {subtitle && <p className="text-xs text-muted mt-0.5">{subtitle}</p>}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 sm:justify-end">
           {count !== undefined && <span className="text-xs text-muted">{count}</span>}
           {actions}
         </div>

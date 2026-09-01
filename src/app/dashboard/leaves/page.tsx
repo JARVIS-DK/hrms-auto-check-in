@@ -292,7 +292,7 @@ export default function LeavesPage() {
         <div className="bg-card border border-border rounded-2xl p-5">
           <h3 className="text-sm font-semibold mb-3">Add New Leave</h3>
           <form onSubmit={addLeave} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-medium text-muted mb-1.5">Date</label>
                 <DateInput
@@ -432,7 +432,7 @@ export default function LeavesPage() {
                     </>
                   )}
                 </p>
-                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
                   <div>
                     <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
                     <TimeInput
@@ -441,7 +441,7 @@ export default function LeavesPage() {
                       onClear={() => setWindowStart("")}
                     />
                   </div>
-                  <span className="text-muted text-xs mt-5">—</span>
+                  <span className="hidden text-muted text-xs text-center sm:block sm:mt-5">—</span>
                   <div>
                     <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
                     <TimeInput
@@ -494,7 +494,7 @@ export default function LeavesPage() {
             past.length > 0 && (
               <button
                 onClick={() => setShowPast((v) => !v)}
-                className="px-2.5 py-1 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors whitespace-nowrap"
+                className="w-full px-2.5 py-1 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors whitespace-nowrap sm:w-auto"
               >
                 {showPast ? `Upcoming (${upcoming.length})` : `Past (${past.length})`}
               </button>
