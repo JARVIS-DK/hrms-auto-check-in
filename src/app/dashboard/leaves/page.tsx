@@ -277,8 +277,8 @@ export default function LeavesPage() {
   }
 
   return (
-    <div className="flex-1 flex justify-center">
-      <div className="w-full max-w-xl 2xl:max-w-3xl space-y-5">
+    <div className="flex-1 min-h-0">
+      <div className="mx-auto w-full max-w-xl 2xl:max-w-3xl space-y-5">
         {/* Header */}
         <div>
           <h2 className="text-lg font-bold">Leave Dates</h2>
@@ -489,15 +489,33 @@ export default function LeavesPage() {
         {/* Leaves table */}
         <TableCard
           title={showPast ? "Past Leaves" : "Upcoming Leaves"}
-          count={visibleLeaves.length}
+          // count={visibleLeaves.length}
           actions={
             past.length > 0 && (
-              <button
-                onClick={() => setShowPast((v) => !v)}
-                className="w-full px-2.5 py-1 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors whitespace-nowrap sm:w-auto"
-              >
-                {showPast ? `Upcoming (${upcoming.length})` : `Past (${past.length})`}
-              </button>
+              <div className="inline-flex w-full items-center rounded-lg border border-border bg-background p-0.5 sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowPast(false)}
+                  className={`flex-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:flex-none ${
+                    !showPast
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  Upcoming ({upcoming.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPast(true)}
+                  className={`flex-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:flex-none ${
+                    showPast
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  Past ({past.length})
+                </button>
+              </div>
             )
           }
         >

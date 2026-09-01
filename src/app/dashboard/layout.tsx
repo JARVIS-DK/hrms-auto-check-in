@@ -80,7 +80,7 @@ export default function DashboardLayout({
   const visibleNavItems = NAV_ITEMS.filter((item) => !item.adminOnly || userRole === "admin");
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden">
       {/* Header */}
       <header className="sticky top-0 z-40 shrink-0 bg-card/95 border-b border-border px-4 md:px-6 py-3.5 flex items-center justify-between backdrop-blur-sm">
         <div className="flex items-center gap-2.5">
@@ -95,8 +95,10 @@ export default function DashboardLayout({
             </svg>
           </button>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10">
-            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="7"/>
+              <path d="M12 8v4l2.5 2.5"/>
+              <path d="M16 9.5l-4.5 4.5-2.5-2.5"/>
             </svg>
           </div>
           <h1 className="text-base font-bold hidden sm:block">HRMS Auto Check-in</h1>
