@@ -21,7 +21,7 @@ interface TableProps {
 export function Table({ children, label }: TableProps) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-0 sm:min-w-[540px]" aria-label={label}>
+      <table className="w-full min-w-0" aria-label={label}>
         {children}
       </table>
     </div>
