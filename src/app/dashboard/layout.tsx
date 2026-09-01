@@ -82,7 +82,7 @@ export default function DashboardLayout({
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="shrink-0 bg-card border-b border-border px-4 md:px-6 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-40 shrink-0 bg-card/95 border-b border-border px-4 md:px-6 py-3.5 flex items-center justify-between backdrop-blur-sm">
         <div className="flex items-center gap-2.5">
           {/* Mobile menu button */}
           <button
@@ -112,9 +112,9 @@ export default function DashboardLayout({
         </button>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Desktop sidebar */}
-        <nav className="hidden md:flex shrink-0 w-52 2xl:w-60 bg-card border-r border-border p-3 flex-col gap-0.5 overflow-y-auto">
+        <nav className="hidden md:flex shrink-0 w-52 2xl:w-60 bg-card border-r border-border p-3 flex-col gap-0.5 overflow-y-auto min-h-0">
           {visibleNavItems.map((item) => (
             <Link
               key={item.href}
@@ -178,7 +178,7 @@ export default function DashboardLayout({
         )}
 
         {/* Main content */}
-        <main className="flex-1 p-4 md:p-6 2xl:p-10 bg-background overflow-y-auto">{children}</main>
+        <main className="flex-1 min-h-0 p-4 md:p-6 2xl:p-10 bg-background overflow-y-auto">{children}</main>
       </div>
     </div>
   );
