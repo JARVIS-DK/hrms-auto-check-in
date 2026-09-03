@@ -20,8 +20,8 @@ interface TableProps {
  */
 export function Table({ children, label }: TableProps) {
   return (
-    <div className="overflow-x-auto overflow-y-hidden">
-      <table className="w-full min-w-0" aria-label={label}>
+    <div className="overflow-x-auto">
+      <table className="w-full" aria-label={label}>
         {children}
       </table>
     </div>
@@ -30,7 +30,7 @@ export function Table({ children, label }: TableProps) {
 
 export function THead({ children }: { children: React.ReactNode }) {
   return (
-    <thead className="bg-background border-b border-border">
+    <thead className="bg-input/60 border-b border-border">
       <tr>{children}</tr>
     </thead>
   );
@@ -52,7 +52,7 @@ export function Th({
   return (
     <th
       scope="col"
-      className={`px-4 py-3 ${ALIGN[align]} text-xs font-semibold text-muted whitespace-nowrap ${className}`}
+      className={`px-3 py-2.5 sm:px-4 sm:py-3 ${ALIGN[align]} text-xs font-semibold text-muted whitespace-nowrap ${className}`}
     >
       {children}
     </th>
@@ -75,7 +75,7 @@ export function Tr({
 }) {
   return (
     <tr
-      className={`hover:bg-background/50 transition-colors group ${muted ? "opacity-60" : ""} ${className}`}
+      className={`hover:bg-white/[0.03] transition-colors group ${muted ? "opacity-60" : ""} ${className}`}
     >
       {children}
     </tr>
@@ -89,7 +89,7 @@ export function Td({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <td className={`px-4 py-3 text-sm align-middle ${className}`}>{children}</td>;
+  return <td className={`px-3 py-2.5 sm:px-4 sm:py-3 text-sm align-middle ${className}`}>{children}</td>;
 }
 
 /** Full-width message for a table with no rows. */
@@ -145,10 +145,10 @@ export function TableCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden">
-      <div className="flex flex-col gap-2 px-5 py-3.5 border-b border-border sm:flex-row sm:items-center sm:justify-between">
+    <div className="bg-card/80 border border-border rounded-2xl overflow-hidden shadow-[var(--shadow)]">
+      <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-border">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold">{title}</h3>
+          <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
           {subtitle && <p className="text-xs text-muted mt-0.5">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0 sm:justify-end">

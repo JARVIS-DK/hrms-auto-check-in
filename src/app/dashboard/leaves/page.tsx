@@ -277,11 +277,10 @@ export default function LeavesPage() {
   }
 
   return (
-    <div className="flex-1 min-h-0">
-      <div className="mx-auto w-full max-w-xl 2xl:max-w-3xl space-y-5">
+    <div className="w-full max-w-xl 2xl:max-w-3xl mx-auto space-y-5">
         {/* Header */}
         <div>
-          <h2 className="text-lg font-bold">Leave Dates</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Leave Dates</h2>
           <p className="text-sm text-muted mt-0.5">
             Tell the scheduler which days you&apos;re away. A full day is skipped entirely; a half
             day still records the part you work, just at a later or earlier time.
@@ -289,7 +288,7 @@ export default function LeavesPage() {
         </div>
 
         {/* Add Leave Form */}
-        <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="bg-card/80 border border-border rounded-2xl p-5 shadow-[var(--shadow)]">
           <h3 className="text-sm font-semibold mb-3">Add New Leave</h3>
           <form onSubmit={addLeave} className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -648,7 +647,6 @@ export default function LeavesPage() {
             </svg>
           }
         />
-      </div>
     </div>
   );
 }

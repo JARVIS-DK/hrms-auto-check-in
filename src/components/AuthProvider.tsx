@@ -64,8 +64,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-muted">Loading...</p>
+      <div className="flex-1 min-h-0 flex items-center justify-center">
+        <div className="w-7 h-7 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        <span className="sr-only">Loading</span>
       </div>
     );
   }

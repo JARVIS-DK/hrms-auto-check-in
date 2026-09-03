@@ -222,17 +222,16 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex-1 flex justify-center">
-      <div className="w-full max-w-xl 2xl:max-w-3xl space-y-5">
+    <div className="w-full max-w-xl 2xl:max-w-3xl mx-auto space-y-5">
         {/* Header */}
         <div>
-          <h2 className="text-lg font-bold">Settings</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Settings</h2>
           <p className="text-sm text-muted mt-0.5">Configure your HRMS credentials and scheduler preferences</p>
         </div>
 
         <form onSubmit={handleSave} className="space-y-5">
           {/* Credentials */}
-          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
@@ -267,7 +266,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Location */}
-          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -323,7 +322,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Schedule Intervals */}
-          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -343,7 +342,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Auto Scheduler Toggle */}
-            <div className="flex items-center justify-between p-3 bg-background rounded-xl">
+            <div className="flex items-center justify-between p-3 bg-input rounded-xl">
               <div className="flex items-center gap-3">
                 <div className={`w-2.5 h-2.5 rounded-full ${automationEnabled ? "bg-success animate-pulse" : "bg-muted"}`} />
                 <div>
@@ -355,6 +354,8 @@ export default function SettingsPage() {
                 type="button"
                 onClick={toggleAutomation}
                 disabled={toggling || !hasPassword}
+                aria-pressed={automationEnabled}
+                aria-label={automationEnabled ? "Disable automation" : "Enable automation"}
                 className="relative w-12 h-7 rounded-full transition-colors disabled:opacity-50"
                 style={{ backgroundColor: automationEnabled ? "var(--success)" : "var(--border)" }}
               >
@@ -404,7 +405,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Weekend Toggles */}
-          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -412,11 +413,13 @@ export default function SettingsPage() {
               Skip Days
             </h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-background rounded-xl">
+              <div className="flex items-center justify-between p-3 bg-input rounded-xl">
                 <span className="text-sm font-medium">Saturday</span>
                 <button
                   type="button"
                   onClick={() => setSkipSaturday(!skipSaturday)}
+                  aria-pressed={skipSaturday}
+                  aria-label={skipSaturday ? "Run scheduler on Saturday" : "Skip Saturday"}
                   className="relative w-11 h-6 rounded-full transition-colors"
                   style={{ backgroundColor: skipSaturday ? "var(--primary)" : "var(--border)" }}
                 >
@@ -427,11 +430,13 @@ export default function SettingsPage() {
                   />
                 </button>
               </div>
-              <div className="flex items-center justify-between p-3 bg-background rounded-xl">
+              <div className="flex items-center justify-between p-3 bg-input rounded-xl">
                 <span className="text-sm font-medium">Sunday</span>
                 <button
                   type="button"
                   onClick={() => setSkipSunday(!skipSunday)}
+                  aria-pressed={skipSunday}
+                  aria-label={skipSunday ? "Run scheduler on Sunday" : "Skip Sunday"}
                   className="relative w-11 h-6 rounded-full transition-colors"
                   style={{ backgroundColor: skipSunday ? "var(--primary)" : "var(--border)" }}
                 >
@@ -464,7 +469,6 @@ export default function SettingsPage() {
             )}
           </button>
         </form>
-      </div>
     </div>
   );
 }

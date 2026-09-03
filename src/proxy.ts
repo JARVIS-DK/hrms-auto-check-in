@@ -12,6 +12,7 @@ const PUBLIC_APIS = [
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/invite",
+  "/api/auth/contact-admin",
   "/api/cron",
 ];
 

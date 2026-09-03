@@ -80,18 +80,17 @@ export default function LogsPage() {
   const hasFilters = filterDate || filterAction || filterStatus;
 
   return (
-    <div className="flex-1 flex justify-center">
-      <div className="w-full max-w-3xl 2xl:max-w-5xl space-y-5">
+    <div className="w-full max-w-3xl 2xl:max-w-5xl mx-auto space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold">Activity Logs</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold tracking-tight">Activity Logs</h2>
             <p className="text-sm text-muted mt-0.5">View all check-in and check-out history</p>
           </div>
           <button
             onClick={() => { setLoading(true); setReloadKey((k) => k + 1); }}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border rounded-xl hover:bg-card disabled:opacity-50 transition-colors"
+            className="self-start flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border rounded-xl hover:bg-card disabled:opacity-50 transition-colors"
           >
             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "animate-spin" : ""}>
               <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -101,33 +100,33 @@ export default function LogsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-card border border-border rounded-2xl p-4">
-          <div className="flex flex-wrap gap-3 items-end">
-            <div>
+        <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="w-full sm:w-auto min-w-0">
               <label className="block text-xs font-medium text-muted mb-1.5">Date</label>
               <DateInput
                 value={filterDate}
                 onChange={setFilterDate}
               />
             </div>
-            <div>
+            <div className="w-full sm:w-auto">
               <label htmlFor="logs-action" className="block text-xs font-medium text-muted mb-1.5">Action</label>
               <select id="logs-action"
                 value={filterAction}
                 onChange={(e) => setFilterAction(e.target.value)}
-                className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-card"
+                className="w-full sm:w-auto px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-input"
               >
                 <option value="">All</option>
                 <option value="CHECK_IN">Check-in</option>
                 <option value="CHECK_OUT">Check-out</option>
               </select>
             </div>
-            <div>
+            <div className="w-full sm:w-auto">
               <label htmlFor="logs-status" className="block text-xs font-medium text-muted mb-1.5">Status</label>
               <select id="logs-status"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-card"
+                className="w-full sm:w-auto px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-input"
               >
                 <option value="">All</option>
                 <option value="SUCCESS">Success</option>
@@ -137,7 +136,7 @@ export default function LogsPage() {
             </div>
             <button
               onClick={applyFilters}
-              className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover transition-colors"
+              className="w-full sm:w-auto px-4 py-2.5 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover transition-colors"
             >
               Apply
             </button>
@@ -153,21 +152,20 @@ export default function LogsPage() {
         </div>
 
         {/* Logs table */}
-        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="bg-card/80 border border-border rounded-2xl overflow-hidden shadow-[var(--shadow)]">
           <Table label="Your check-in and check-out history">
             <THead>
               <Th>Action</Th>
-              <Th>Date</Th>
-              <Th>Time</Th>
+              <Th>When</Th>
               <Th>Status</Th>
-              <Th>Details</Th>
+              <Th className="hidden md:table-cell">Details</Th>
             </THead>
             <TBody>
               {loading ? (
-                <TableLoading colSpan={5} />
+                <TableLoading colSpan={4} />
               ) : logs.length === 0 ? (
                 <TableEmpty
-                  colSpan={5}
+                  colSpan={4}
                   message="No logs found"
                   icon={
                     <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -183,20 +181,22 @@ export default function LogsPage() {
                       <Td>
                         <span className="flex items-center gap-2.5">
                           <AttendanceBadge action={log.action as "CHECK_IN"} />
-                          <span className="font-medium whitespace-nowrap">
+                          <span className="font-medium">
                             {log.action === "CHECK_IN" ? "Check-in" : "Check-out"}
                           </span>
                         </span>
                       </Td>
-                      <Td className="text-muted whitespace-nowrap">
-                        {at.toLocaleDateString("en-IN", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </Td>
-                      <Td className="text-muted whitespace-nowrap tabular-nums">
-                        {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                      <Td className="text-muted">
+                        <span className="block whitespace-nowrap">
+                          {at.toLocaleDateString("en-IN", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>
+                        <span className="block text-xs tabular-nums">
+                          {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                        </span>
                       </Td>
                       <Td>
                         <span
@@ -211,7 +211,7 @@ export default function LogsPage() {
                           {log.status === "SUCCESS" ? "Done" : log.status === "FAILED" ? "Failed" : "Skipped"}
                         </span>
                       </Td>
-                      <Td className="text-xs text-muted">
+                      <Td className="hidden md:table-cell text-xs text-muted">
                         <span className="block max-w-[240px] truncate" title={log.skipReason || log.errorMessage || ""}>
                           {log.skipReason || log.errorMessage || "—"}
                         </span>
@@ -248,7 +248,6 @@ export default function LogsPage() {
             </button>
           </div>
         )}
-      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import AuthShell from "@/components/AuthShell";
 import PasswordInput from "@/components/ui/PasswordInput";
 
 // Kept in step with validatePassword() in lib/account.ts.
@@ -36,7 +37,7 @@ function ResetPasswordContent() {
 
   if (validating) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 min-h-0 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -44,12 +45,12 @@ function ResetPasswordContent() {
 
   if (!token || invalid) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm text-center">
+      <div className="flex-1 min-h-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm text-center bg-card/80 border border-border rounded-2xl p-8 shadow-[var(--shadow)]">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-danger/10 mx-auto">
             <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
           </div>
-          <h2 className="text-lg font-bold mb-2">Invalid Link</h2>
+          <h2 className="text-lg font-semibold tracking-tight mb-2">Invalid Link</h2>
           <p className="text-sm text-muted">This password reset link is invalid or has expired.</p>
           <Link href="/forgot-password" className="inline-block mt-6 text-sm text-primary font-medium hover:underline">
             Request a new link
@@ -61,14 +62,14 @@ function ResetPasswordContent() {
 
   if (success) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm text-center">
+      <div className="flex-1 min-h-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm text-center bg-card/80 border border-border rounded-2xl p-8 shadow-[var(--shadow)]">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-success/10 mx-auto">
             <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success, #22c55e)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </div>
-          <h2 className="text-lg font-bold mb-2">Password Reset Successful</h2>
+          <h2 className="text-lg font-semibold tracking-tight mb-2">Password Reset Successful</h2>
           <p className="text-sm text-muted">Redirecting to login...</p>
         </div>
       </div>
@@ -114,20 +115,17 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm 2xl:max-w-md">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-primary/10">
-            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-          </div>
-          <h1 className="text-xl font-bold">Set New Password</h1>
-          <p className="text-sm text-muted mt-1">Enter your new password below</p>
-        </div>
-
-        <div className="bg-card border border-border rounded-2xl p-6">
+    <AuthShell
+      title="Set new password"
+      subtitle="Enter your new password below"
+      footer={
+        <p className="text-center text-sm text-muted mt-5">
+          <Link href="/login" className="text-primary font-medium hover:underline">
+            Back to Sign In
+          </Link>
+        </p>
+      }
+    >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="reset-password-new-password" className="block text-xs font-medium text-muted mb-1.5">New Password</label>
@@ -174,22 +172,14 @@ function ResetPasswordContent() {
               )}
             </button>
           </form>
-        </div>
-
-        <p className="text-center text-sm text-muted mt-5">
-          <Link href="/login" className="text-primary font-medium hover:underline">
-            Back to Sign In
-          </Link>
-        </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 min-h-0 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     }>

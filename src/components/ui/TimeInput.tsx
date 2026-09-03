@@ -59,7 +59,7 @@ export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInp
       <button
         type="button"
         onClick={handleOpen}
-        className={`w-full px-3.5 py-3 border rounded-xl text-sm font-medium text-left transition-all flex items-center gap-2 ${
+        className={`w-full px-3.5 py-3 border rounded-xl text-sm font-medium text-left transition-all flex items-center gap-2 bg-input ${
           open
             ? "border-primary ring-2 ring-primary/20 shadow-sm"
             : "border-border hover:border-primary/40"
@@ -89,7 +89,7 @@ export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInp
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1.5 z-50 bg-card border border-border rounded-xl shadow-lg p-3 animate-[scaleIn_100ms_ease-out]">
+          <div className="absolute top-full left-0 mt-1.5 z-50 bg-card border border-border rounded-xl shadow-[var(--shadow)] p-3 animate-[scaleIn_100ms_ease-out]">
             <div className="flex gap-1.5">
               {/* Hour */}
               <div className="w-[52px]">

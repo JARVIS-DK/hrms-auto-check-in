@@ -136,6 +136,26 @@ export async function sendResetLinkEmail(to: string, resetUrl: string) {
   );
 }
 
+export async function sendAccessRequestEmail(
+  adminEmails: string[],
+  requesterEmail: string
+) {
+  if (adminEmails.length === 0) return;
+
+  await send(
+    adminEmails.join(", "),
+    "[HRMS] Access request",
+    SHELL(`
+      <h2 style="color: #3b82f6; margin-bottom: 16px;">Someone asked for an invite</h2>
+      <p style="color: #374151; line-height: 1.6;">
+        <strong>${esc(requesterEmail)}</strong> does not have an account and asked an admin to send them a registration invite.
+      </p>
+      ${FOOTNOTE("Open Admin → Invites and create an invite for this address if they should have access.")}
+    `),
+    "access request"
+  );
+}
+
 export async function sendInviteEmail(
   to: string,
   inviteUrl: string,

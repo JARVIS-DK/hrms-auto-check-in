@@ -17,6 +17,7 @@ import {
   TableLoading,
 } from "@/components/ui/Table";
 import { AttendanceBadge } from "@/components/ui/icons";
+import UserManageDialog from "@/components/admin/UserManageDialog";
 
 type Tab = "users" | "logs" | "leaves" | "scheduled" | "holidays" | "invites";
 
@@ -98,6 +99,45 @@ function formatTimeRange(start: string | null | undefined, end: string | null | 
  * component makes React see a brand-new type on every render and remount the
  * <select>, losing its open state and focus on every keystroke elsewhere.
  */
+function userInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function AutomationToggle({
+  enabled,
+  dimmed,
+  busy,
+  name,
+  onClick,
+}: {
+  enabled: boolean;
+  dimmed: boolean;
+  busy: boolean;
+  name: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      aria-pressed={enabled}
+      aria-label={`${enabled ? "Turn off" : "Turn on"} scheduler for ${name}`}
+      onClick={onClick}
+      className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${dimmed ? "opacity-45" : ""}`}
+      style={{ backgroundColor: enabled ? "var(--success)" : "var(--border)" }}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+          enabled ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
+}
+
 function UserSelect({
   value,
   onChange,
@@ -111,7 +151,7 @@ function UserSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background min-w-[160px]"
+      className="w-full sm:w-auto px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-input"
     >
       <option value="">All users</option>
       {users.map((u) => (
@@ -131,8 +171,13 @@ interface User {
   checkinEnd: string;
   checkoutStart: string;
   checkoutEnd: string;
+  halfDayCheckinStart: string;
+  halfDayCheckinEnd: string;
+  halfDayCheckoutStart: string;
+  halfDayCheckoutEnd: string;
   lastActivity: string | null;
   hasSettings: boolean;
+  hasPassword: boolean;
 }
 
 interface LogEntry {
@@ -189,6 +234,9 @@ export default function AdminPage() {
   // eight of them, and they are always opened, edited, and saved together.
   const [draft, setDraft] = useState<GlobalDefaults | null>(null);
   const [saving, setSaving] = useState(false);
+  const [managingUser, setManagingUser] = useState<User | null>(null);
+  const [automationConfirm, setAutomationConfirm] = useState<{ user: User; next: boolean } | null>(null);
+  const [togglingUserId, setTogglingUserId] = useState<number | null>(null);
 
   // Holidays state
   const [holidays, setHolidays] = useState<Holiday[]>([]);
@@ -576,6 +624,48 @@ export default function AdminPage() {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
+  function requestAutomationToggle(user: User) {
+    const next = !user.automationEnabled;
+    if (next && !user.hasPassword) {
+      toast("This user has no HRMS password saved, so the scheduler cannot be turned on", "error");
+      return;
+    }
+    setAutomationConfirm({ user, next });
+  }
+
+  async function confirmAutomationToggle() {
+    const pending = automationConfirm;
+    if (!pending) return;
+    setAutomationConfirm(null);
+    setTogglingUserId(pending.user.id);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: pending.user.id,
+          automationEnabled: pending.next,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || "Failed to update scheduler", "error");
+        return;
+      }
+      toast(
+        pending.next
+          ? `Scheduler turned on for ${pending.user.name}`
+          : `Scheduler turned off for ${pending.user.name}`,
+        "success"
+      );
+      fetchUsers();
+    } catch {
+      toast("Failed to update scheduler", "error");
+    } finally {
+      setTogglingUserId(null);
+    }
+  }
+
   async function saveGlobalDefaults() {
     if (!draft) return;
 
@@ -612,18 +702,17 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="flex-1 flex justify-center">
-      <div className="w-full max-w-6xl space-y-5">
+    <div className="w-full max-w-6xl mx-auto space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold">Admin Monitoring</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold tracking-tight">Admin Monitoring</h2>
             <p className="text-sm text-muted mt-0.5">Monitor all users, logs, leaves, and scheduled actions</p>
           </div>
           <button
             onClick={refreshCurrentTab}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border rounded-xl hover:bg-card disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium border border-border rounded-xl hover:bg-card disabled:opacity-50 transition-colors shrink-0 self-start sm:self-auto"
           >
             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "animate-spin" : ""}>
               <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -633,7 +722,7 @@ export default function AdminPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 border-b border-border overflow-x-auto">
+        <div className="flex gap-1 p-1 bg-input/80 border border-border rounded-2xl overflow-x-auto overscroll-x-contain">
           {([
             { id: "users", label: "Users", icon: <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
             { id: "logs", label: "Logs", icon: <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
@@ -645,10 +734,10 @@ export default function AdminPage() {
             <button
               key={tab.id}
               onClick={() => switchTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2 text-xs sm:text-sm font-medium rounded-xl whitespace-nowrap shrink-0 transition-colors ${
                 activeTab === tab.id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted hover:text-foreground"
+                  ? "bg-card text-primary shadow-sm ring-1 ring-border"
+                  : "text-muted hover:text-foreground"
               }`}
             >
               {tab.icon}
@@ -662,31 +751,31 @@ export default function AdminPage() {
           <div className="space-y-4">
             {/* Global Defaults Card */}
             {globalDefaults && (
-              <div className="bg-card border border-border rounded-2xl p-4">
-                <div className="flex items-center justify-between">
+              <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10 shrink-0">
                       <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                       </svg>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold">Default Schedule</p>
                       <p className="text-xs text-muted">Applied to users without custom times</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6 text-sm flex-wrap justify-end">
+                  <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2">
                     {WINDOWS.map((window) => (
-                      <div key={window.label} className="text-center">
+                      <div key={window.label} className="min-w-0 sm:text-center">
                         <p className="text-xs text-muted">{window.label}</p>
-                        <p className="font-medium">
+                        <p className="font-medium text-sm tabular-nums">
                           {formatTimeRange(globalDefaults[window.start], globalDefaults[window.end])}
                         </p>
                       </div>
                     ))}
                     <button
                       onClick={openDefaultsEditor}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors"
+                      className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors sm:ml-auto"
                     >
                       <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -699,24 +788,24 @@ export default function AdminPage() {
             )}
 
             {/* Filters */}
-            <div className="bg-card border border-border rounded-2xl p-4">
-              <div className="flex flex-wrap gap-3 items-end">
-                <div className="flex-1 min-w-[200px]">
+            <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                <div className="w-full sm:flex-1 sm:min-w-[200px]">
                   <label htmlFor="admin-search" className="block text-xs font-medium text-muted mb-1.5">Search</label>
                   <input id="admin-search"
                     type="text"
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                     placeholder="Name or email..."
-                    className="w-full px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-input"
                   />
                 </div>
-                <div>
+                <div className="w-full sm:w-auto">
                   <label htmlFor="admin-automation" className="block text-xs font-medium text-muted mb-1.5">Automation</label>
                   <select id="admin-automation"
                     value={automationFilter}
                     onChange={(e) => setAutomationFilter(e.target.value as typeof automationFilter)}
-                    className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
+                    className="w-full sm:w-auto px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-input"
                   >
                     <option value="all">All</option>
                     <option value="enabled">Enabled</option>
@@ -728,61 +817,120 @@ export default function AdminPage() {
 
             {/* Users table */}
             <TableCard title="Users" count={filteredUsers.length}>
-              <Table label="All users and their automation settings">
-                <THead>
-                  <Th>User</Th>
-                  <Th>Role</Th>
-                  <Th>Automation</Th>
-                  <Th>Check-in</Th>
-                  <Th>Check-out</Th>
-                  <Th>Last activity</Th>
-                </THead>
-                <TBody>
-                  {loading ? (
-                    <TableLoading colSpan={6} />
-                  ) : filteredUsers.length === 0 ? (
-                    <TableEmpty colSpan={6} message="No users found" />
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <Tr key={user.id}>
-                        <Td>
-                          <span className="block font-medium whitespace-nowrap">{user.name}</span>
-                          <span className="block text-xs text-muted">{user.email}</span>
-                        </Td>
-                        <Td>
-                          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
-                            user.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted/10 text-muted"
+              {loading ? (
+                <div className="px-5 py-12 flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span className="sr-only">Loading</span>
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <p className="px-5 py-10 text-center text-sm text-muted">No users found</p>
+              ) : (
+                <>
+                  <ul className="md:hidden divide-y divide-border">
+                    {filteredUsers.map((user) => (
+                      <li key={user.id} className="px-4 py-3.5 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/15 text-primary text-xs font-semibold flex items-center justify-center shrink-0">
+                            {userInitials(user.name)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{user.name}</p>
+                            <p className="text-xs text-muted truncate">{user.email}</p>
+                          </div>
+                          <span className={`shrink-0 inline-block text-[11px] font-medium px-2 py-0.5 rounded-full capitalize ${
+                            user.role === "admin" ? "bg-primary/15 text-primary" : "bg-white/8 text-foreground/80"
                           }`}>
                             {user.role}
                           </span>
-                        </Td>
-                        <Td>
-                          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
-                            user.automationEnabled ? "bg-success/10 text-success" : "bg-muted/10 text-muted"
-                          }`}>
-                            {user.automationEnabled ? "Enabled" : "Disabled"}
-                          </span>
-                        </Td>
-                        <Td className="text-muted whitespace-nowrap tabular-nums">
-                          {user.checkinStart && user.checkinEnd
-                            ? formatTimeRange(user.checkinStart, user.checkinEnd)
-                            : "Default"}
-                        </Td>
-                        <Td className="text-muted whitespace-nowrap tabular-nums">
-                          {user.checkoutStart && user.checkoutEnd
-                            ? formatTimeRange(user.checkoutStart, user.checkoutEnd)
-                            : "Default"}
-                        </Td>
-                        <Td className="text-xs text-muted whitespace-nowrap">
-                          {user.lastActivity
-                            ? new Date(user.lastActivity).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })
-                            : "Never"}
-                        </Td>
-                      </Tr>
-                    ))
-                  )}
-                </TBody>
-              </Table>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 pl-[52px]">
+                          <span className="text-xs text-muted">Scheduler</span>
+                          <div className="flex items-center gap-3">
+                            <AutomationToggle
+                              enabled={user.automationEnabled}
+                              dimmed={!user.hasPassword && !user.automationEnabled}
+                              busy={togglingUserId === user.id}
+                              name={user.name}
+                              onClick={() => requestAutomationToggle(user)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setManagingUser(user)}
+                              className="text-sm font-medium text-primary"
+                            >
+                              Manage
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="hidden md:block">
+                    <Table label="All users and their automation settings">
+                      <THead>
+                        <Th>User</Th>
+                        <Th>Role</Th>
+                        <Th>Automation</Th>
+                        <Th className="hidden lg:table-cell">Check-in</Th>
+                        <Th className="hidden lg:table-cell">Check-out</Th>
+                        <Th className="hidden lg:table-cell">Last activity</Th>
+                        <Th>Manage</Th>
+                      </THead>
+                      <TBody>
+                        {filteredUsers.map((user) => (
+                          <Tr key={user.id}>
+                            <Td>
+                              <span className="block font-medium">{user.name}</span>
+                              <span className="block text-xs text-muted">{user.email}</span>
+                            </Td>
+                            <Td>
+                              <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
+                                user.role === "admin" ? "bg-primary/15 text-primary" : "bg-white/8 text-foreground/80"
+                              }`}>
+                                {user.role}
+                              </span>
+                            </Td>
+                            <Td>
+                              <AutomationToggle
+                                enabled={user.automationEnabled}
+                                dimmed={!user.hasPassword && !user.automationEnabled}
+                                busy={togglingUserId === user.id}
+                                name={user.name}
+                                onClick={() => requestAutomationToggle(user)}
+                              />
+                            </Td>
+                            <Td className="hidden lg:table-cell text-muted whitespace-nowrap tabular-nums">
+                              {user.checkinStart && user.checkinEnd
+                                ? formatTimeRange(user.checkinStart, user.checkinEnd)
+                                : "Default"}
+                            </Td>
+                            <Td className="hidden lg:table-cell text-muted whitespace-nowrap tabular-nums">
+                              {user.checkoutStart && user.checkoutEnd
+                                ? formatTimeRange(user.checkoutStart, user.checkoutEnd)
+                                : "Default"}
+                            </Td>
+                            <Td className="hidden lg:table-cell text-xs text-muted whitespace-nowrap">
+                              {user.lastActivity
+                                ? new Date(user.lastActivity).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })
+                                : "Never"}
+                            </Td>
+                            <Td>
+                              <button
+                                type="button"
+                                onClick={() => setManagingUser(user)}
+                                className="text-sm font-medium text-primary hover:underline"
+                              >
+                                Manage
+                              </button>
+                            </Td>
+                          </Tr>
+                        ))}
+                      </TBody>
+                    </Table>
+                  </div>
+                </>
+              )}
             </TableCard>
 
             {/* Edit Global Defaults Modal */}
@@ -848,14 +996,56 @@ export default function AdminPage() {
                 </div>
               </div>
             </Modal>
+
+            <UserManageDialog
+              user={managingUser}
+              defaults={globalDefaults}
+              onClose={() => setManagingUser(null)}
+              onSaved={() => {
+                fetchUsers();
+                fetchLeaves();
+              }}
+            />
+            <ConfirmDialog
+              open={automationConfirm !== null}
+              onCancel={() => setAutomationConfirm(null)}
+              onConfirm={confirmAutomationToggle}
+              title={automationConfirm?.next ? "Turn scheduler on" : "Turn scheduler off"}
+              confirmLabel={automationConfirm?.next ? "Turn on" : "Turn off"}
+              tone={automationConfirm?.next ? "success" : "danger"}
+              message={
+                automationConfirm?.next ? (
+                  <>
+                    Auto check-in and check-out will start running for{" "}
+                    <span className="font-medium text-foreground">{automationConfirm.user.name}</span>.
+                  </>
+                ) : (
+                  <>
+                    Auto check-in and check-out will stop for{" "}
+                    <span className="font-medium text-foreground">{automationConfirm?.user.name}</span>.
+                  </>
+                )
+              }
+              icon={
+                automationConfirm?.next ? (
+                  <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14"/><path d="M12 5v14"/>
+                  </svg>
+                ) : (
+                  <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="6" y="6" width="12" height="12" rx="1"/>
+                  </svg>
+                )
+              }
+            />
           </div>
         )}
 
         {activeTab === "logs" && (
           <div className="space-y-4">
             {/* Filters */}
-            <div className="bg-card border border-border rounded-2xl p-4">
-              <div className="flex flex-wrap gap-3 items-end">
+            <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1.5">User</label>
                   <UserSelect value={logsUserId} onChange={setLogsUserId} users={users} />
@@ -916,43 +1106,50 @@ export default function AdminPage() {
             </div>
 
             {/* Logs table */}
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="bg-card/80 border border-border rounded-2xl overflow-hidden shadow-[var(--shadow)]">
               <Table label="Activity logs for all users">
                 <THead>
                   <Th>User</Th>
-                  <Th>Action</Th>
-                  <Th>Date</Th>
-                  <Th>Time</Th>
+                  <Th className="hidden md:table-cell">Action</Th>
+                  <Th>When</Th>
                   <Th>Status</Th>
-                  <Th>Details</Th>
+                  <Th className="hidden lg:table-cell">Details</Th>
                 </THead>
                 <TBody>
                   {loading ? (
-                    <TableLoading colSpan={6} />
+                    <TableLoading colSpan={5} />
                   ) : logs.length === 0 ? (
-                    <TableEmpty colSpan={6} message="No logs found" />
+                    <TableEmpty colSpan={5} message="No logs found" />
                   ) : (
                     logs.map((log) => {
                       const at = new Date(log.executedAt);
                       return (
                         <Tr key={log.id}>
                           <Td>
-                            <span className="block font-medium whitespace-nowrap">{log.userName}</span>
-                            <span className="block text-xs text-muted">{log.userEmail}</span>
-                          </Td>
-                          <Td>
-                            <span className="flex items-center gap-2.5">
-                              <AttendanceBadge action={log.action as "CHECK_IN"} />
-                              <span className="font-medium whitespace-nowrap">
+                            <span className="block font-medium">{log.userName}</span>
+                            <span className="block text-xs text-muted break-all">{log.userEmail}</span>
+                            <span className="mt-1.5 flex items-center gap-1.5 md:hidden">
+                              <AttendanceBadge action={log.action as "CHECK_IN"} size={24} iconSize={12} />
+                              <span className="text-xs font-medium">
                                 {log.action === "CHECK_IN" ? "Check-in" : "Check-out"}
                               </span>
                             </span>
                           </Td>
-                          <Td className="text-muted whitespace-nowrap">
-                            {at.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                          <Td className="hidden md:table-cell">
+                            <span className="flex items-center gap-2.5">
+                              <AttendanceBadge action={log.action as "CHECK_IN"} />
+                              <span className="font-medium">
+                                {log.action === "CHECK_IN" ? "Check-in" : "Check-out"}
+                              </span>
+                            </span>
                           </Td>
-                          <Td className="text-muted whitespace-nowrap tabular-nums">
-                            {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                          <Td className="text-muted">
+                            <span className="block whitespace-nowrap">
+                              {at.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                            </span>
+                            <span className="block text-xs tabular-nums">
+                              {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                            </span>
                           </Td>
                           <Td>
                             <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
@@ -961,7 +1158,7 @@ export default function AdminPage() {
                               {log.status === "SUCCESS" ? "Done" : log.status === "FAILED" ? "Failed" : "Skipped"}
                             </span>
                           </Td>
-                          <Td className="text-xs text-muted">
+                          <Td className="hidden lg:table-cell text-xs text-muted">
                             <span className="block max-w-[220px] truncate" title={log.skipReason || log.errorMessage || ""}>
                               {log.skipReason || log.errorMessage || "—"}
                             </span>
@@ -1010,8 +1207,8 @@ export default function AdminPage() {
         {activeTab === "leaves" && (
           <div className="space-y-4">
             {/* Filters */}
-            <div className="bg-card border border-border rounded-2xl p-4">
-              <div className="flex flex-wrap gap-3 items-end">
+            <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1.5">User</label>
                   <UserSelect value={leavesUserId} onChange={setLeavesUserId} users={users} />
@@ -1107,8 +1304,8 @@ export default function AdminPage() {
         {activeTab === "scheduled" && (
           <div className="space-y-4">
             {/* Filters */}
-            <div className="bg-card border border-border rounded-2xl p-4">
-              <div className="flex flex-wrap gap-3 items-end">
+            <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1.5">User</label>
                   <UserSelect value={scheduledUserId} onChange={setScheduledUserId} users={users} />
@@ -1269,15 +1466,15 @@ export default function AdminPage() {
         {activeTab === "holidays" && (
           <div className="space-y-4">
             {/* Add holiday */}
-            <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="bg-card/80 border border-border rounded-2xl p-5 shadow-[var(--shadow)]">
               <h3 className="text-sm font-semibold">Add a public holiday</h3>
               <p className="text-xs text-muted mt-0.5 mb-4">
                 Attendance is skipped for every user on these dates, ahead of their own leave.
                 Add an end date to cover a multi-day break.
               </p>
 
-              <form onSubmit={addHoliday} className="flex flex-wrap gap-3 items-end">
-                <div className="flex-1 min-w-[200px]">
+              <form onSubmit={addHoliday} className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end">
+                <div className="w-full sm:flex-1 sm:min-w-[200px]">
                   <label htmlFor="admin-name" className="block text-xs font-medium text-muted mb-1.5">Name</label>
                   <input id="admin-name"
                     type="text"
@@ -1305,7 +1502,7 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   disabled={savingHoliday}
-                  className="px-4 py-2.5 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover disabled:opacity-50 transition-colors"
+                  className="w-full sm:w-auto px-4 py-2.5 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover disabled:opacity-50 transition-colors"
                 >
                   {savingHoliday ? "Saving..." : "Add holiday"}
                 </button>
@@ -1406,15 +1603,15 @@ export default function AdminPage() {
         {activeTab === "invites" && (
           <div className="space-y-4">
             {/* Create invite */}
-            <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="bg-card/80 border border-border rounded-2xl p-5 shadow-[var(--shadow)]">
               <h3 className="text-sm font-semibold">Invite a new user</h3>
               <p className="text-xs text-muted mt-0.5 mb-4">
                 Registration is invite-only. The link works once, only for the address below, and
                 expires in 7 days.
               </p>
 
-              <form onSubmit={createInvite} className="flex flex-wrap gap-3 items-end">
-                <div className="flex-1 min-w-[220px]">
+              <form onSubmit={createInvite} className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end">
+                <div className="w-full sm:flex-1 sm:min-w-[220px]">
                   <label htmlFor="admin-email-address" className="block text-xs font-medium text-muted mb-1.5">Email address</label>
                   <input id="admin-email-address"
                     type="email"
@@ -1436,7 +1633,7 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   disabled={creatingInvite}
-                  className="px-4 py-2.5 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover disabled:opacity-50 transition-colors"
+                  className="w-full sm:w-auto px-4 py-2.5 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover disabled:opacity-50 transition-colors"
                 >
                   {creatingInvite ? "Creating..." : "Create invite"}
                 </button>
@@ -1511,6 +1708,5 @@ export default function AdminPage() {
           </div>
         )}
       </div>
-    </div>
   );
 }

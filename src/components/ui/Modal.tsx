@@ -74,10 +74,10 @@ interface ModalProps {
   /** Announced as the dialog's name; rendered as the heading unless hidden. */
   title: string;
   children: React.ReactNode;
-  maxWidth?: "xs" | "sm" | "md";
+  maxWidth?: "xs" | "sm" | "md" | "lg";
 }
 
-const WIDTHS = { xs: "max-w-xs", sm: "max-w-sm", md: "max-w-md" } as const;
+const WIDTHS = { xs: "max-w-xs", sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg" } as const;
 
 export default function Modal({ open, onClose, title, children, maxWidth = "xs" }: ModalProps) {
   const ref = useDialogBehaviour(open, onClose);
@@ -88,14 +88,14 @@ export default function Modal({ open, onClose, title, children, maxWidth = "xs" 
       className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-[fadeIn_150ms_ease-out]"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" />
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className={`relative bg-card border border-border rounded-2xl p-6 w-full ${WIDTHS[maxWidth]} shadow-xl animate-[scaleIn_150ms_ease-out] max-h-[85vh] overflow-y-auto`}
+        className={`relative bg-card border border-border rounded-2xl p-6 w-full ${WIDTHS[maxWidth]} shadow-[var(--shadow)] animate-[scaleIn_150ms_ease-out] max-h-[85vh] overflow-y-auto`}
       >
         {children}
       </div>

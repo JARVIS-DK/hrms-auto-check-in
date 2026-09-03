@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/Modal";
 import { Table, THead, Th, TBody, Tr, Td, TableCard, TableEmpty } from "@/components/ui/Table";
@@ -93,6 +94,7 @@ function planStatus(plan: ActionPlan | null, paused: boolean) {
 }
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [today, setToday] = useState<Today | null>(null);
   const [recentLogs, setRecentLogs] = useState<LogEntry[]>([]);
@@ -183,23 +185,33 @@ export default function DashboardPage() {
 
   if (!settings) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex justify-center py-16">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const firstName = user?.name?.split(/\s+/)[0] ?? "";
+
   return (
-    <div className="flex-1 flex justify-center">
-      <div className="w-full max-w-2xl 2xl:max-w-4xl space-y-5">
+    <div className="w-full max-w-2xl 2xl:max-w-4xl mx-auto space-y-5">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">
+            {greeting}{firstName ? `, ${firstName}` : ""}
+          </h2>
+          <p className="text-sm text-muted mt-0.5">Today&apos;s schedule and a shortcut if you need to punch in by hand.</p>
+        </div>
+
         {/* Automation Toggle Card */}
-        <div className="rounded-2xl p-5 bg-card border border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-2.5 h-2.5 rounded-full ${settings.automationEnabled ? "bg-success animate-pulse" : "bg-muted"}`} />
-              <div>
+        <div className="rounded-2xl p-5 bg-card/80 border border-border shadow-[var(--shadow)]">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${settings.automationEnabled ? "bg-success animate-pulse" : "bg-muted"}`} />
+              <div className="min-w-0">
                 <h3 className="font-semibold text-sm">Auto Scheduler</h3>
-                <p className="text-xs text-muted mt-0.5">
+                <p className="text-xs text-muted mt-0.5 truncate">
                   {settings.hrmsEmail || "No HRMS email configured"}
                 </p>
               </div>
@@ -207,7 +219,9 @@ export default function DashboardPage() {
             <button
               onClick={toggleAutomation}
               disabled={toggling || !settings.hasPassword}
-              className="relative w-12 h-7 rounded-full transition-colors disabled:opacity-50"
+              aria-pressed={settings.automationEnabled}
+              aria-label={settings.automationEnabled ? "Disable automation" : "Enable automation"}
+              className="relative w-12 h-7 rounded-full transition-colors disabled:opacity-50 shrink-0"
               style={{ backgroundColor: settings.automationEnabled ? "var(--success)" : "var(--border)" }}
             >
               <span
@@ -221,7 +235,7 @@ export default function DashboardPage() {
 
         {/* Today's plan — the randomly-picked time used to be invisible */}
         {today && (
-          <div className="rounded-2xl p-5 bg-card border border-border">
+          <div className="rounded-2xl p-5 bg-card/80 border border-border shadow-[var(--shadow)]">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sm">Today</h3>
               <span className="text-xs text-muted">
@@ -247,7 +261,7 @@ export default function DashboardPage() {
               return (
                 <>
                   {pausedReason && (
-                    <div className="flex items-center gap-2 px-3 py-2.5 mb-3 bg-background rounded-xl">
+                    <div className="flex items-center gap-2 px-3 py-2.5 mb-3 bg-input rounded-xl">
                       <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                       <p className="text-xs text-muted">{pausedReason}</p>
                     </div>
@@ -270,7 +284,7 @@ export default function DashboardPage() {
                     ] as const).map(({ key, label, plan }) => {
                       const status = planStatus(plan, Boolean(pausedReason));
                       return (
-                        <div key={key} className="flex items-center gap-3">
+                        <div key={key} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-input/60">
                           {/* Muted when nothing will run — the row shouldn't
                               look active on a day the scheduler sits out. */}
                           <AttendanceBadge action={key} muted={!plan?.window} />
@@ -296,14 +310,14 @@ export default function DashboardPage() {
         )}
 
         {/* Manual Check-in/Check-out */}
-        <div className="rounded-2xl p-5 space-y-4 bg-card border border-border">
+        <div className="rounded-2xl p-5 space-y-4 bg-card/80 border border-border shadow-[var(--shadow)]">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-sm">Manual Action</h3>
             {!settings.hasPassword && (
               <span className="text-xs text-danger">Credentials required</span>
             )}
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => setConfirmAction("IN")}
               disabled={checkinLoading || !settings.hasPassword}
@@ -356,13 +370,12 @@ export default function DashboardPage() {
           <Table label="Your most recent check-ins and check-outs">
             <THead>
               <Th>Action</Th>
-              <Th>Date</Th>
-              <Th>Time</Th>
+              <Th>When</Th>
               <Th>Status</Th>
             </THead>
             <TBody>
               {recentLogs.length === 0 ? (
-                <TableEmpty colSpan={4} message="No activity yet" />
+                <TableEmpty colSpan={3} message="No activity yet" />
               ) : (
                 recentLogs.map((log, i) => {
                   const at = new Date(log.executedAt);
@@ -371,16 +384,18 @@ export default function DashboardPage() {
                       <Td>
                         <span className="flex items-center gap-2.5">
                           <AttendanceBadge action={log.action as "CHECK_IN"} />
-                          <span className="font-medium whitespace-nowrap">
+                          <span className="font-medium">
                             {log.action === "CHECK_IN" ? "Check-in" : "Check-out"}
                           </span>
                         </span>
                       </Td>
-                      <Td className="text-muted whitespace-nowrap">
-                        {at.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                      </Td>
-                      <Td className="text-muted whitespace-nowrap tabular-nums">
-                        {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                      <Td className="text-muted">
+                        <span className="block whitespace-nowrap">
+                          {at.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        </span>
+                        <span className="block text-xs tabular-nums">
+                          {at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                        </span>
                       </Td>
                       <Td>
                         <span
@@ -429,7 +444,6 @@ export default function DashboardPage() {
             />
           }
         />
-      </div>
     </div>
   );
 }

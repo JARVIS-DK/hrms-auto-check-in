@@ -97,7 +97,7 @@ export default function DateInput({ value, onChange, min }: DateInputProps) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className={`w-full px-3.5 py-3 border rounded-xl text-sm font-medium text-left transition-colors ${
+        className={`w-full px-3.5 py-3 border rounded-xl text-sm font-medium text-left transition-colors bg-input ${
           open
             ? "border-primary ring-2 ring-primary/30"
             : "border-border hover:border-primary/40"
@@ -114,7 +114,7 @@ export default function DateInput({ value, onChange, min }: DateInputProps) {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1.5 z-50 bg-card border border-border rounded-xl shadow-lg p-4 w-[280px] animate-[scaleIn_100ms_ease-out]">
+          <div className="absolute top-full left-0 mt-1.5 z-50 bg-card border border-border rounded-xl shadow-[var(--shadow)] p-4 w-[280px] animate-[scaleIn_100ms_ease-out]">
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
               <button
