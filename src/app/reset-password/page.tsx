@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AuthShell from "@/components/AuthShell";
 import PasswordInput from "@/components/ui/PasswordInput";
+import Button from "@/components/ui/Button";
+import { ErrorIcon, CheckIcon } from "@/components/ui/icons";
 
-// Kept in step with validatePassword() in lib/account.ts.
 const MIN_PASSWORD_LENGTH = 8;
 
 function ResetPasswordContent() {
@@ -19,8 +20,6 @@ function ResetPasswordContent() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  // A missing token is knowable at render time — deriving it here avoids an
-  // effect that immediately sets state and re-renders.
   const [validating, setValidating] = useState(Boolean(token));
   const [invalid, setInvalid] = useState(!token);
 
@@ -45,34 +44,37 @@ function ResetPasswordContent() {
 
   if (!token || invalid) {
     return (
-      <div className="flex-1 min-h-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm text-center bg-card/80 border border-border rounded-2xl p-8 shadow-[var(--shadow)]">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-danger/10 mx-auto">
-            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <AuthShell
+        title="Invalid link"
+        subtitle="This password reset link is invalid or has expired."
+        footer={
+          <p className="text-center text-sm text-muted mt-5">
+            <Link href="/forgot-password" className="text-primary font-medium hover:underline">
+              Request a new link
+            </Link>
+          </p>
+        }
+      >
+        <div className="flex items-start gap-3 rounded-xl border border-danger/25 bg-danger/8 px-3.5 py-3">
+          <div className="mt-0.5 w-8 h-8 rounded-lg bg-danger/15 flex items-center justify-center shrink-0">
+            <ErrorIcon size={16} stroke="var(--danger)" />
           </div>
-          <h2 className="text-lg font-semibold tracking-tight mb-2">Invalid Link</h2>
-          <p className="text-sm text-muted">This password reset link is invalid or has expired.</p>
-          <Link href="/forgot-password" className="inline-block mt-6 text-sm text-primary font-medium hover:underline">
-            Request a new link
-          </Link>
+          <p className="text-sm text-muted">Ask for a fresh reset email and try again.</p>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   if (success) {
     return (
-      <div className="flex-1 min-h-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm text-center bg-card/80 border border-border rounded-2xl p-8 shadow-[var(--shadow)]">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-success/10 mx-auto">
-            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success, #22c55e)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
+      <AuthShell title="Password updated" subtitle="Redirecting you to sign in…">
+        <div className="flex items-start gap-3 rounded-xl border border-success/25 bg-success/8 px-3.5 py-3">
+          <div className="mt-0.5 w-8 h-8 rounded-xl bg-success/15 flex items-center justify-center shrink-0">
+            <CheckIcon size={16} stroke="var(--success)" />
           </div>
-          <h2 className="text-lg font-semibold tracking-tight mb-2">Password Reset Successful</h2>
-          <p className="text-sm text-muted">Redirecting to login...</p>
+          <p className="text-sm text-muted">You can sign in with your new password.</p>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
@@ -116,73 +118,70 @@ function ResetPasswordContent() {
 
   return (
     <AuthShell
-      title="Set new password"
-      subtitle="Enter your new password below"
+      title="Set a new password"
+      subtitle="Choose something you haven’t used here before"
       footer={
         <p className="text-center text-sm text-muted mt-5">
           <Link href="/login" className="text-primary font-medium hover:underline">
-            Back to Sign In
+            Back to sign in
           </Link>
         </p>
       }
     >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="reset-password-new-password" className="block text-xs font-medium text-muted mb-1.5">New Password</label>
-              <PasswordInput id="reset-password-new-password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={setNewPassword}
-                placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-                required
-                minLength={MIN_PASSWORD_LENGTH}
-              />
-            </div>
-            <div>
-              <label htmlFor="reset-password-confirm-password" className="block text-xs font-medium text-muted mb-1.5">Confirm Password</label>
-              <PasswordInput id="reset-password-confirm-password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={setConfirmPassword}
-                placeholder="Re-enter password"
-                required
-                minLength={MIN_PASSWORD_LENGTH}
-              />
-            </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="reset-password-new-password" className="block text-xs font-medium text-muted mb-1.5">
+            New password
+          </label>
+          <PasswordInput
+            id="reset-password-new-password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={setNewPassword}
+            placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+            required
+            minLength={MIN_PASSWORD_LENGTH}
+          />
+        </div>
+        <div>
+          <label htmlFor="reset-password-confirm-password" className="block text-xs font-medium text-muted mb-1.5">
+            Confirm password
+          </label>
+          <PasswordInput
+            id="reset-password-confirm-password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            placeholder="Re-enter password"
+            required
+            minLength={MIN_PASSWORD_LENGTH}
+          />
+        </div>
 
-            {error && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-danger/10 border border-danger/20 rounded-lg">
-                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <p className="text-xs text-danger">{error}</p>
-              </div>
-            )}
+        {error && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-danger/10 border border-danger/20 rounded-lg">
+            <ErrorIcon size={14} stroke="var(--danger)" />
+            <p className="text-xs text-danger">{error}</p>
+          </div>
+        )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 text-white rounded-xl font-medium text-sm disabled:opacity-50 transition-all bg-primary hover:bg-primary-hover"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Resetting...
-                </span>
-              ) : (
-                "Reset Password"
-              )}
-            </button>
-          </form>
+        <Button type="submit" loading={loading}>
+          {loading ? "Resetting…" : "Reset password"}
+        </Button>
+      </form>
     </AuthShell>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="flex-1 min-h-0 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
       <ResetPasswordContent />
     </Suspense>
   );

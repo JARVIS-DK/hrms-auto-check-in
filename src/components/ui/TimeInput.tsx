@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { ClockIcon } from "@/components/ui/icons";
 
 interface TimeInputProps {
   value: string;
@@ -65,9 +66,7 @@ export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInp
             : "border-border hover:border-primary/40"
         } ${value ? "text-foreground" : "text-muted"}`}
       >
-        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-50">
-          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-        </svg>
+        <ClockIcon size={14} className="shrink-0 opacity-50" />
         {formatDisplay() || "Select time"}
       </button>
 

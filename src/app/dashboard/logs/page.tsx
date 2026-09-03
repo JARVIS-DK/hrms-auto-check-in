@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import DateInput from "@/components/ui/DateInput";
 import { Table, THead, Th, TBody, Tr, Td, TableEmpty, TableLoading } from "@/components/ui/Table";
-import { AttendanceBadge } from "@/components/ui/icons";
+import { AttendanceBadge, RefreshIcon, ChevronLeftIcon, ChevronRightIcon, ActivityIcon } from "@/components/ui/icons";
 
 interface LogEntry {
   id: string;
@@ -92,9 +92,7 @@ export default function LogsPage() {
             disabled={loading}
             className="self-start flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border rounded-xl hover:bg-card disabled:opacity-50 transition-colors"
           >
-            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "animate-spin" : ""}>
-              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-            </svg>
+            <RefreshIcon size={14} className={loading ? "animate-spin" : ""} />
             {loading ? "Loading..." : "Refresh"}
           </button>
         </div>
@@ -167,11 +165,7 @@ export default function LogsPage() {
                 <TableEmpty
                   colSpan={4}
                   message="No logs found"
-                  icon={
-                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                    </svg>
-                  }
+                  icon={<ActivityIcon size={20} stroke="var(--muted)" />}
                 />
               ) : (
                 logs.map((log) => {
@@ -232,7 +226,7 @@ export default function LogsPage() {
               disabled={page <= 1}
               className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-border rounded-xl disabled:opacity-40 hover:bg-card transition-colors"
             >
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              <ChevronLeftIcon size={14} />
               Previous
             </button>
             <span className="text-xs text-muted">
@@ -244,7 +238,7 @@ export default function LogsPage() {
               className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-border rounded-xl disabled:opacity-40 hover:bg-card transition-colors"
             >
               Next
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              <ChevronRightIcon size={14} />
             </button>
           </div>
         )}

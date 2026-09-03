@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import AuthShell from "@/components/AuthShell";
+import Button from "@/components/ui/Button";
+import { CheckIcon, ErrorIcon } from "@/components/ui/icons";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -42,8 +44,8 @@ export default function ForgotPasswordPage() {
         title="Check your email"
         subtitle={
           <>
-            If an account exists for <strong>{email}</strong>, we&apos;ve sent it a password reset
-            link. Click the link in the email to reset your password.
+            If an account exists for <strong className="text-foreground">{email}</strong>, we&apos;ve
+            sent a password reset link.
           </>
         }
         footer={
@@ -51,15 +53,18 @@ export default function ForgotPasswordPage() {
             <p className="text-center text-xs text-muted mt-4">The link expires in 1 hour.</p>
             <p className="text-center mt-3">
               <Link href="/login" className="text-sm text-primary font-medium hover:underline">
-                Back to Sign In
+                Back to sign in
               </Link>
             </p>
           </>
         }
       >
-        <p className="text-sm text-muted text-center">
-          Nothing more to do here until you open that message.
-        </p>
+        <div className="flex items-start gap-3 rounded-xl border border-success/25 bg-success/8 px-3.5 py-3">
+          <div className="mt-0.5 w-8 h-8 rounded-xl bg-success/15 flex items-center justify-center shrink-0">
+            <CheckIcon size={16} stroke="var(--success)" />
+          </div>
+          <p className="text-sm text-muted">Nothing more to do here until you open that message.</p>
+        </div>
       </AuthShell>
     );
   }
@@ -67,19 +72,21 @@ export default function ForgotPasswordPage() {
   return (
     <AuthShell
       title="Reset password"
-      subtitle="Enter your email to receive a reset link"
+      subtitle="Enter your email and we’ll send a reset link"
       footer={
         <p className="text-center text-sm text-muted mt-5">
           Remember your password?{" "}
           <Link href="/login" className="text-primary font-medium hover:underline">
-            Sign In
+            Sign in
           </Link>
         </p>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="forgot-password-email" className="block text-xs font-medium text-muted mb-1.5">Email</label>
+          <label htmlFor="forgot-password-email" className="block text-xs font-medium text-muted mb-1.5">
+            Email
+          </label>
           <input
             id="forgot-password-email"
             autoComplete="email"
@@ -94,25 +101,14 @@ export default function ForgotPasswordPage() {
 
         {error && (
           <div className="flex items-center gap-2 px-3 py-2 bg-danger/10 border border-danger/20 rounded-lg">
-            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <ErrorIcon size={14} stroke="var(--danger)" />
             <p className="text-xs text-danger">{error}</p>
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2.5 text-white rounded-xl font-medium text-sm disabled:opacity-50 transition-all bg-primary hover:bg-primary-hover"
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Sending...
-            </span>
-          ) : (
-            "Send Reset Link"
-          )}
-        </button>
+        <Button type="submit" loading={loading}>
+          {loading ? "Sending…" : "Send reset link"}
+        </Button>
       </form>
     </AuthShell>
   );

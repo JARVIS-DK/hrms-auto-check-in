@@ -5,7 +5,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/Modal";
 import { Table, THead, Th, TBody, Tr, Td, TableCard, TableEmpty } from "@/components/ui/Table";
-import { AttendanceBadge, AttendanceIcon, CheckInIcon, CheckOutIcon } from "@/components/ui/icons";
+import { AttendanceBadge, AttendanceIcon, CheckInIcon, CheckOutIcon, InfoIcon, ClockIcon } from "@/components/ui/icons";
 
 interface Settings {
   hrmsEmail: string;
@@ -262,14 +262,14 @@ export default function DashboardPage() {
                 <>
                   {pausedReason && (
                     <div className="flex items-center gap-2 px-3 py-2.5 mb-3 bg-input rounded-xl">
-                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                      <InfoIcon size={14} stroke="var(--muted)" className="shrink-0" />
                       <p className="text-xs text-muted">{pausedReason}</p>
                     </div>
                   )}
 
                   {today.leave && today.leave.type !== "full" && (
                     <div className="flex items-center gap-2 px-3 py-2.5 mb-3 bg-primary/10 rounded-xl">
-                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <ClockIcon size={14} stroke="var(--primary)" className="shrink-0" />
                       <p className="text-xs text-primary">
                         {today.leave.type === "first_half" ? "First-half" : "Second-half"} leave —
                         times shifted below

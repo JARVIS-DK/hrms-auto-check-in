@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AuthShell from "@/components/AuthShell";
 import PasswordInput from "@/components/ui/PasswordInput";
+import Button from "@/components/ui/Button";
+import { ErrorIcon } from "@/components/ui/icons";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,8 +43,8 @@ export default function LoginPage() {
 
   return (
     <AuthShell
-      title="Welcome back"
-      subtitle="Sign in to your account"
+      title="Sign in"
+      subtitle="Use your work email to open the dashboard"
       footer={
         <p className="text-center text-sm text-muted mt-5">
           Don&apos;t have an account?{" "}
@@ -54,7 +56,9 @@ export default function LoginPage() {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="login-email" className="block text-xs font-medium text-muted mb-1.5">Email</label>
+          <label htmlFor="login-email" className="block text-xs font-medium text-muted mb-1.5">
+            Email
+          </label>
           <input
             id="login-email"
             autoComplete="email"
@@ -67,7 +71,9 @@ export default function LoginPage() {
           />
         </div>
         <div>
-          <label htmlFor="login-password" className="block text-xs font-medium text-muted mb-1.5">Password</label>
+          <label htmlFor="login-password" className="block text-xs font-medium text-muted mb-1.5">
+            Password
+          </label>
           <PasswordInput
             id="login-password"
             autoComplete="current-password"
@@ -85,25 +91,14 @@ export default function LoginPage() {
 
         {error && (
           <div className="flex items-center gap-2 px-3 py-2 bg-danger/10 border border-danger/20 rounded-lg">
-            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <ErrorIcon size={14} stroke="var(--danger)" />
             <p className="text-xs text-danger">{error}</p>
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2.5 text-white rounded-xl font-medium text-sm disabled:opacity-50 transition-all bg-primary hover:bg-primary-hover"
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Signing in...
-            </span>
-          ) : (
-            "Sign In"
-          )}
-        </button>
+        <Button type="submit" loading={loading}>
+          {loading ? "Signing in…" : "Sign in"}
+        </Button>
       </form>
     </AuthShell>
   );

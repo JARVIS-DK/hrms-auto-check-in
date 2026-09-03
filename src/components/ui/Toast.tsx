@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useState } from "react";
+import { CheckIcon, ErrorIcon, InfoIcon } from "@/components/ui/icons";
 
 type ToastType = "success" | "error" | "info";
 
@@ -36,11 +37,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      {/*
-        Every error this app surfaces arrives as a toast, so it has to be a
-        live region — otherwise a failed save is completely silent to anyone
-        using a screen reader. Errors assert; the rest are polite.
-      */}
       <div
         aria-live="polite"
         aria-atomic="false"
@@ -53,19 +49,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             className="pointer-events-auto animate-[slideUp_200ms_ease-out] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-[var(--shadow)] border text-sm font-medium max-w-sm backdrop-blur-md"
             style={{
               backgroundColor: "color-mix(in srgb, var(--card) 92%, transparent)",
-              borderColor: t.type === "success" ? "var(--success)" : t.type === "error" ? "var(--danger)" : "var(--primary)",
+              borderColor:
+                t.type === "success" ? "var(--success)" : t.type === "error" ? "var(--danger)" : "var(--primary)",
               color: "var(--foreground)",
             }}
           >
-            {t.type === "success" && (
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
-            )}
-            {t.type === "error" && (
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-            )}
-            {t.type === "info" && (
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            )}
+            {t.type === "success" && <CheckIcon size={16} stroke="var(--success)" className="shrink-0" />}
+            {t.type === "error" && <ErrorIcon size={16} stroke="var(--danger)" className="shrink-0" />}
+            {t.type === "info" && <InfoIcon size={16} stroke="var(--primary)" className="shrink-0" />}
             <span>{t.message}</span>
           </div>
         ))}
