@@ -1555,7 +1555,7 @@ export default function AdminPage() {
                           <Td className="text-right">
                             <button
                               onClick={() => setHolidayDeleteConfirm(holiday)}
-                              className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all"
+                              className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-colors"
                               aria-label={`Remove ${holiday.name}`}
                             >
                               <TrashIcon size={14} />

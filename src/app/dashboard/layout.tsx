@@ -16,6 +16,7 @@ import {
   MenuIcon,
   CloseIcon,
 } from "@/components/ui/icons";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 
 const NAV_ITEMS = [
   {
@@ -206,7 +207,11 @@ export default function DashboardLayout({
           </div>
         )}
 
-        <main className="flex-1 min-w-0 w-full min-h-0 p-4 md:p-6 2xl:p-10 overflow-y-auto overscroll-none">{children}</main>
+        <main className="flex-1 min-w-0 w-full min-h-0 flex flex-col">
+          <PullToRefresh className="flex-1 min-h-0 p-4 md:p-6 2xl:p-10 overflow-y-auto overscroll-contain">
+            {children}
+          </PullToRefresh>
+        </main>
       </div>
     </div>
   );
