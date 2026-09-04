@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useToast } from "@/components/ui/Toast";
 import DateInput from "@/components/ui/DateInput";
 import TimeInput from "@/components/ui/TimeInput";
+import Select from "@/components/ui/Select";
 import Modal, { ConfirmDialog } from "@/components/ui/Modal";
 import { useRegisterPullRefresh } from "@/components/ui/PullToRefresh";
 import LoadError from "@/components/ui/LoadError";
@@ -167,16 +168,14 @@ function UserSelect({
   users: { id: number; name: string }[];
 }) {
   return (
-    <select
+    <Select
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full sm:w-auto px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-input"
-    >
-      <option value="">All users</option>
-      {users.map((u) => (
-        <option key={u.id} value={String(u.id)}>{u.name}</option>
-      ))}
-    </select>
+      onChange={onChange}
+      options={[
+        { value: "", label: "All users" },
+        ...users.map((u) => ({ value: String(u.id), label: u.name })),
+      ]}
+    />
   );
 }
 
@@ -906,17 +905,18 @@ export default function AdminPage() {
                     className="w-full px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-input"
                   />
                 </div>
-                <div className="w-full sm:w-auto">
+                <div className="w-full sm:w-auto min-w-[10rem]">
                   <label htmlFor="admin-automation" className="block text-xs font-medium text-muted mb-1.5">Automation</label>
-                  <select id="admin-automation"
+                  <Select
+                    id="admin-automation"
                     value={automationFilter}
-                    onChange={(e) => setAutomationFilter(e.target.value as typeof automationFilter)}
-                    className="w-full sm:w-auto px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-input"
-                  >
-                    <option value="all">All</option>
-                    <option value="enabled">Enabled</option>
-                    <option value="disabled">Disabled</option>
-                  </select>
+                    onChange={(v) => setAutomationFilter(v as typeof automationFilter)}
+                    options={[
+                      { value: "all", label: "All" },
+                      { value: "enabled", label: "Enabled" },
+                      { value: "disabled", label: "Disabled" },
+                    ]}
+                  />
                 </div>
               </div>
             </div>
@@ -1228,28 +1228,30 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <label htmlFor="admin-action" className="block text-xs font-medium text-muted mb-1.5">Action</label>
-                  <select id="admin-action"
+                  <Select
+                    id="admin-action"
                     value={logsAction}
-                    onChange={(e) => setLogsAction(e.target.value)}
-                    className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
-                  >
-                    <option value="">All</option>
-                    <option value="CHECK_IN">Check-in</option>
-                    <option value="CHECK_OUT">Check-out</option>
-                  </select>
+                    onChange={setLogsAction}
+                    options={[
+                      { value: "", label: "All" },
+                      { value: "CHECK_IN", label: "Check-in" },
+                      { value: "CHECK_OUT", label: "Check-out" },
+                    ]}
+                  />
                 </div>
                 <div>
                   <label htmlFor="admin-status" className="block text-xs font-medium text-muted mb-1.5">Status</label>
-                  <select id="admin-status"
+                  <Select
+                    id="admin-status"
                     value={logsStatus}
-                    onChange={(e) => setLogsStatus(e.target.value)}
-                    className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
-                  >
-                    <option value="">All</option>
-                    <option value="SUCCESS">Success</option>
-                    <option value="FAILED">Failed</option>
-                    <option value="SKIPPED">Skipped</option>
-                  </select>
+                    onChange={setLogsStatus}
+                    options={[
+                      { value: "", label: "All" },
+                      { value: "SUCCESS", label: "Success" },
+                      { value: "FAILED", label: "Failed" },
+                      { value: "SKIPPED", label: "Skipped" },
+                    ]}
+                  />
                 </div>
                 <button
                   onClick={() => {
@@ -1507,28 +1509,30 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <label htmlFor="admin-action-2" className="block text-xs font-medium text-muted mb-1.5">Action</label>
-                  <select id="admin-action-2"
+                  <Select
+                    id="admin-action-2"
                     value={scheduledAction}
-                    onChange={(e) => setScheduledAction(e.target.value)}
-                    className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
-                  >
-                    <option value="">All</option>
-                    <option value="checkin">Check-in</option>
-                    <option value="checkout">Check-out</option>
-                    <option value="leave_notify">Leave Notify</option>
-                  </select>
+                    onChange={setScheduledAction}
+                    options={[
+                      { value: "", label: "All" },
+                      { value: "checkin", label: "Check-in" },
+                      { value: "checkout", label: "Check-out" },
+                      { value: "leave_notify", label: "Leave Notify" },
+                    ]}
+                  />
                 </div>
                 <div>
                   <label htmlFor="admin-status-2" className="block text-xs font-medium text-muted mb-1.5">Status</label>
-                  <select id="admin-status-2"
+                  <Select
+                    id="admin-status-2"
                     value={scheduledStatus}
-                    onChange={(e) => setScheduledStatus(e.target.value)}
-                    className="px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-background"
-                  >
-                    <option value="">All</option>
-                    <option value="pending">Pending</option>
-                    <option value="executed">Executed</option>
-                  </select>
+                    onChange={setScheduledStatus}
+                    options={[
+                      { value: "", label: "All" },
+                      { value: "pending", label: "Pending" },
+                      { value: "executed", label: "Executed" },
+                    ]}
+                  />
                 </div>
                 <button
                   onClick={() => {

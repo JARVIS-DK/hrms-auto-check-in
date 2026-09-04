@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import DateInput from "@/components/ui/DateInput";
+import Select from "@/components/ui/Select";
 import LoadError from "@/components/ui/LoadError";
 import { useRegisterPullRefresh } from "@/components/ui/PullToRefresh";
 import { Table, THead, Th, TBody, Tr, Td, TableEmpty, TableLoading } from "@/components/ui/Table";
@@ -123,30 +124,32 @@ export default function LogsPage() {
                 onChange={setFilterDate}
               />
             </div>
-            <div className="w-full sm:w-auto">
+            <div className="w-full sm:w-auto min-w-[10rem]">
               <label htmlFor="logs-action" className="block text-xs font-medium text-muted mb-1.5">Action</label>
-              <select id="logs-action"
+              <Select
+                id="logs-action"
                 value={filterAction}
-                onChange={(e) => setFilterAction(e.target.value)}
-                className="w-full sm:w-auto px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-input"
-              >
-                <option value="">All</option>
-                <option value="CHECK_IN">Check-in</option>
-                <option value="CHECK_OUT">Check-out</option>
-              </select>
+                onChange={setFilterAction}
+                options={[
+                  { value: "", label: "All" },
+                  { value: "CHECK_IN", label: "Check-in" },
+                  { value: "CHECK_OUT", label: "Check-out" },
+                ]}
+              />
             </div>
-            <div className="w-full sm:w-auto">
+            <div className="w-full sm:w-auto min-w-[10rem]">
               <label htmlFor="logs-status" className="block text-xs font-medium text-muted mb-1.5">Status</label>
-              <select id="logs-status"
+              <Select
+                id="logs-status"
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full sm:w-auto px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-input"
-              >
-                <option value="">All</option>
-                <option value="SUCCESS">Success</option>
-                <option value="FAILED">Failed</option>
-                <option value="SKIPPED">Skipped</option>
-              </select>
+                onChange={setFilterStatus}
+                options={[
+                  { value: "", label: "All" },
+                  { value: "SUCCESS", label: "Success" },
+                  { value: "FAILED", label: "Failed" },
+                  { value: "SKIPPED", label: "Skipped" },
+                ]}
+              />
             </div>
             <button
               onClick={applyFilters}
