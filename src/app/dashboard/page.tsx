@@ -8,7 +8,15 @@ import { ConfirmDialog } from "@/components/ui/Modal";
 import LoadError from "@/components/ui/LoadError";
 import { useRegisterPullRefresh } from "@/components/ui/PullToRefresh";
 import { Table, THead, Th, TBody, Tr, Td, TableCard, TableEmpty } from "@/components/ui/Table";
-import { AttendanceBadge, AttendanceIcon, CheckInIcon, CheckOutIcon, InfoIcon, ClockIcon } from "@/components/ui/icons";
+import {
+  AttendanceBadge,
+  AttendanceIcon,
+  CheckInIcon,
+  CheckOutIcon,
+  InfoIcon,
+  ClockIcon,
+  RefreshIcon,
+} from "@/components/ui/icons";
 
 interface Settings {
   hrmsEmail: string;
@@ -107,16 +115,20 @@ export default function DashboardPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"IN" | "OUT" | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [logsRefreshing, setLogsRefreshing] = useState(false);
   const { toast } = useToast();
 
-  const fetchLogs = useCallback(() => {
-    fetch("/api/logs?limit=6")
-      .then((r) => {
-        if (!r.ok) return { logs: [] };
-        return r.json();
-      })
-      .then((d) => setRecentLogs(d.logs || []))
-      .catch(() => setRecentLogs([]));
+  const fetchLogs = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLogsRefreshing(true);
+    try {
+      const r = await fetch("/api/logs?limit=6");
+      const d = r.ok ? await r.json() : { logs: [] };
+      setRecentLogs(d.logs || []);
+    } catch {
+      setRecentLogs([]);
+    } finally {
+      if (!opts?.silent) setLogsRefreshing(false);
+    }
   }, []);
 
   const fetchToday = useCallback(() => {
@@ -133,7 +145,7 @@ export default function DashboardPage() {
   }, []);
 
   useRegisterPullRefresh(() => {
-    fetchLogs();
+    fetchLogs({ silent: true });
     fetchToday();
     return fetch("/api/settings")
       .then((r) => {
@@ -165,7 +177,7 @@ export default function DashboardPage() {
         }
       });
 
-    fetchLogs();
+    fetchLogs({ silent: true });
     fetchToday();
     return () => {
       cancelled = true;
@@ -210,7 +222,7 @@ export default function DashboardPage() {
         toast(data.error || "Action failed", "error");
       } else {
         toast(`${isIn ? "Check-in" : "Check-out"} successful at ${data.time}`, "success");
-        fetchLogs();
+        fetchLogs({ silent: true });
         fetchToday();
       }
     } catch {
@@ -266,7 +278,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="rounded-2xl p-5 bg-card/80 border border-border shadow-[var(--shadow)]">
+        <div className="surface-3d rounded-2xl p-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${settings.automationEnabled ? "bg-success animate-pulse" : "bg-muted"}`} />
@@ -298,7 +310,7 @@ export default function DashboardPage() {
         </div>
 
         {today && (
-          <div className="rounded-2xl p-5 bg-card/80 border border-border shadow-[var(--shadow)]">
+          <div className="surface-3d rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sm">Today</h3>
               <span className="text-xs text-muted">
@@ -370,7 +382,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="rounded-2xl p-5 space-y-4 bg-card/80 border border-border shadow-[var(--shadow)]">
+        <div className="surface-3d rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-semibold text-sm">Manual Action</h3>
             {!settings.hasPassword && (
@@ -391,8 +403,8 @@ export default function DashboardPage() {
                   Checking in...
                 </span>
               ) : (
-                <span className="flex items-center justify-center gap-1.5">
-                  <CheckInIcon />
+                <span className="flex items-center justify-center gap-2.5">
+                  <CheckInIcon size={28} />
                   Check In
                 </span>
               )}
@@ -408,8 +420,8 @@ export default function DashboardPage() {
                   Checking out...
                 </span>
               ) : (
-                <span className="flex items-center justify-center gap-1.5">
-                  <CheckOutIcon />
+                <span className="flex items-center justify-center gap-2.5">
+                  <CheckOutIcon size={28} />
                   Check Out
                 </span>
               )}
@@ -421,10 +433,14 @@ export default function DashboardPage() {
           title="Recent Activity"
           actions={
             <button
-              onClick={fetchLogs}
-              className="text-xs text-primary font-medium hover:underline"
+              type="button"
+              onClick={() => fetchLogs()}
+              disabled={logsRefreshing}
+              aria-label={logsRefreshing ? "Refreshing activity" : "Refresh activity"}
+              className="inline-flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium text-muted border border-border/80 bg-white/[0.03] hover:text-foreground hover:bg-white/[0.06] hover:border-border disabled:opacity-50 transition-colors"
             >
-              Refresh
+              <RefreshIcon size={14} className={logsRefreshing ? "animate-spin" : ""} />
+              <span className="hidden sm:inline">{logsRefreshing ? "Refreshing" : "Refresh"}</span>
             </button>
           }
         >
@@ -507,11 +523,7 @@ export default function DashboardPage() {
           } on HRMS right now.`}
           tone={confirmAction === "IN" ? "success" : "danger"}
           icon={
-            <AttendanceIcon
-              action={confirmAction ?? "IN"}
-              size={24}
-              stroke={confirmAction === "IN" ? "var(--success)" : "var(--danger)"}
-            />
+            <AttendanceIcon action={confirmAction ?? "IN"} size={40} />
           }
         />
     </div>

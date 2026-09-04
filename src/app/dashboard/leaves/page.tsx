@@ -336,7 +336,7 @@ export default function LeavesPage() {
         ) : null}
 
         {/* Add Leave Form */}
-        <div className="bg-card/80 border border-border rounded-2xl p-5 shadow-[var(--shadow)]">
+        <div className="surface-3d rounded-2xl p-5">
           <h3 className="text-sm font-semibold mb-3">Add New Leave</h3>
           <form onSubmit={addLeave} className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

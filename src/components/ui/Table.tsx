@@ -145,7 +145,7 @@ export function TableCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-card/80 border border-border rounded-2xl overflow-hidden shadow-[var(--shadow)]">
+    <div className="surface-3d rounded-2xl overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-border">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold tracking-tight">{title}</h3>

@@ -42,10 +42,12 @@ export default function RootLayout({
       lang="en"
       className={`${outfit.variable} ${fraunces.variable} ${jetbrains.variable} h-dvh antialiased`}
     >
-      <body className="h-dvh max-h-dvh flex flex-col overflow-hidden font-sans">
-        <ToastProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </ToastProvider>
+      <body className="h-dvh max-h-dvh overflow-hidden font-sans">
+        <div className="app-shell">
+          <ToastProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </ToastProvider>
+        </div>
       </body>
     </html>
   );

@@ -275,8 +275,8 @@ export default function UserManageDialog({
                   >
                     <label className="block text-xs font-medium text-muted">{window.label}</label>
                     <p className="text-[11px] text-muted/70 mb-2">{window.hint}</p>
-                    <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
-                      <div>
+                    <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+                      <div className="min-w-0">
                         <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
                         <TimeInput
                           value={times[window.start]}
@@ -284,8 +284,10 @@ export default function UserManageDialog({
                           onClear={() => updateTime(window.start, "")}
                         />
                       </div>
-                      <span className="text-muted text-xs mt-5">—</span>
-                      <div>
+                      <span className="text-muted text-xs pb-3.5" aria-hidden="true">
+                        —
+                      </span>
+                      <div className="min-w-0">
                         <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
                         <TimeInput
                           value={times[window.end]}
@@ -376,13 +378,15 @@ export default function UserManageDialog({
                 ))}
               </div>
               {leaveType !== "full" && (
-                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
-                  <div>
+                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+                  <div className="min-w-0">
                     <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
                     <TimeInput value={windowStart} onChange={setWindowStart} onClear={() => setWindowStart("")} />
                   </div>
-                  <span className="text-muted text-xs mt-5">—</span>
-                  <div>
+                  <span className="text-muted text-xs pb-3.5" aria-hidden="true">
+                    —
+                  </span>
+                  <div className="min-w-0">
                     <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
                     <TimeInput value={windowEnd} onChange={setWindowEnd} onClear={() => setWindowEnd("")} />
                   </div>

@@ -22,7 +22,7 @@ export default function AuthShell({
               className="absolute -inset-5 rounded-full bg-primary/10 blur-2xl animate-[pulseSoft_4.5s_ease-in-out_infinite]"
               aria-hidden="true"
             />
-            <BrandMark size={56} className="relative" />
+            <BrandMark size={56} className="relative brand-3d" />
           </div>
           <p className="font-display text-[1.65rem] leading-tight tracking-[-0.02em] text-foreground">
             ShiftSync
@@ -32,7 +32,7 @@ export default function AuthShell({
           </p>
         </div>
 
-        <div className="bg-card/85 border border-border rounded-[1.25rem] p-6 shadow-[var(--shadow)] backdrop-blur-md">
+        <div className="auth-card-3d border border-border/90 rounded-[1.25rem] p-6 backdrop-blur-md">
           <div className="mb-5">
             <h1 className="text-base font-semibold tracking-tight">{title}</h1>
             <div className="text-sm text-muted mt-1">{subtitle}</div>

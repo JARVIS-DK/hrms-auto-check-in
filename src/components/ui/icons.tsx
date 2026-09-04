@@ -26,25 +26,35 @@ function base({ size = 16, className, stroke = "currentColor", strokeWidth = 2 }
   };
 }
 
-/** Arrow entering a doorway. */
-export function CheckInIcon(props: IconProps) {
+/** Arrive / punch-in — custom illustration. */
+export function CheckInIcon({ size = 16, className = "" }: IconProps) {
   return (
-    <svg {...base({ strokeWidth: 2.25, ...props })}>
-      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-      <polyline points="10 17 15 12 10 7" />
-      <line x1="15" y1="12" x2="3" y2="12" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element -- small local asset icon
+    <img
+      src="/check-in.png"
+      alt=""
+      width={size}
+      height={size}
+      aria-hidden="true"
+      draggable={false}
+      className={`inline-block object-contain shrink-0 select-none ${className}`.trim()}
+    />
   );
 }
 
-/** Arrow leaving a doorway. */
-export function CheckOutIcon(props: IconProps) {
+/** Leave / punch-out — custom illustration. */
+export function CheckOutIcon({ size = 16, className = "" }: IconProps) {
   return (
-    <svg {...base({ strokeWidth: 2.25, ...props })}>
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" y1="12" x2="9" y2="12" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element -- small local asset icon
+    <img
+      src="/check-out.png"
+      alt=""
+      width={size}
+      height={size}
+      aria-hidden="true"
+      draggable={false}
+      className={`inline-block object-contain shrink-0 select-none ${className}`.trim()}
+    />
   );
 }
 
@@ -332,7 +342,7 @@ export function EditIcon(props: IconProps) {
 export function AttendanceBadge({
   action,
   size = 32,
-  iconSize = 14,
+  iconSize,
   muted = false,
 }: {
   action: "CHECK_IN" | "CHECK_OUT" | "checkin" | "checkout" | "IN" | "OUT";
@@ -342,14 +352,14 @@ export function AttendanceBadge({
 }) {
   const isIn = action === "CHECK_IN" || action === "checkin" || action === "IN";
   const tint = muted ? "bg-muted/10" : isIn ? "bg-success/10" : "bg-danger/10";
-  const stroke = muted ? "var(--muted)" : isIn ? "var(--success)" : "var(--danger)";
+  const resolvedIconSize = iconSize ?? Math.round(size * 0.72);
 
   return (
     <span
-      className={`rounded-xl flex items-center justify-center shrink-0 ${tint}`}
+      className={`rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${tint}`}
       style={{ width: size, height: size }}
     >
-      <AttendanceIcon action={action} size={iconSize} stroke={stroke} />
+      <AttendanceIcon action={action} size={resolvedIconSize} />
     </span>
   );
 }

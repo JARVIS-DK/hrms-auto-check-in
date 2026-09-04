@@ -13,7 +13,23 @@
   --warning: #f5c34a;
   --muted: #9aabbe;
   --border: #243647;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.07) inset, 0 20px 48px rgba(0, 0, 0, 0.45);
+  /* Layered bevel + depth — reads as raised surfaces */
+  --shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.45) inset,
+    0 2px 3px rgba(0, 0, 0, 0.25),
+    0 10px 24px rgba(0, 0, 0, 0.4),
+    0 28px 56px rgba(0, 0, 0, 0.38);
+  --shadow-float:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.5) inset,
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    0 18px 40px rgba(0, 0, 0, 0.5),
+    0 40px 72px rgba(0, 0, 0, 0.35);
+  --shadow-inset:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 3px 10px rgba(0, 0, 0, 0.45) inset,
+    0 1px 2px rgba(0, 0, 0, 0.35) inset;
   --auth-glow: rgba(77, 176, 255, 0.28);
   --success-glow: rgba(18, 232, 122, 0.22);
 }
@@ -51,9 +67,10 @@ html {
 
 body {
   background:
+    radial-gradient(900px 480px at 50% 115%, rgba(0, 0, 0, 0.75), transparent 55%),
     radial-gradient(1100px 560px at 6% -10%, var(--auth-glow), transparent 52%),
     radial-gradient(820px 460px at 100% 0%, var(--success-glow), transparent 44%),
-    linear-gradient(180deg, #0b1a28 0%, var(--background) 40%, #040a10 100%);
+    linear-gradient(180deg, #0d1e2e 0%, var(--background) 38%, #02060a 100%);
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, sans-serif;
 }
@@ -65,17 +82,35 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: 0;
-  opacity: 0.42;
+  opacity: 0.38;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
   background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 80% 70% at 50% 20%, black 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 18%, black 18%, transparent 72%);
 }
 
-body > * {
+/* Soft “stage floor” vignette for depth */
+body::after {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 100%, rgba(0, 0, 0, 0.55), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 18%);
+}
+
+/* App shell only — never force position on portaled overlays */
+body > .app-shell {
   position: relative;
   z-index: 1;
+  height: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 ::selection {
@@ -96,6 +131,12 @@ body > * {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .surface-3d:hover,
+  .brand-3d,
+  .brand-3d:hover {
+    transform: none !important;
   }
 }
 
@@ -120,8 +161,8 @@ body > * {
 }
 
 @keyframes brandIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(8px) rotateX(8deg); }
+  to { opacity: 1; transform: translateY(0) rotateX(0deg); }
 }
 
 @keyframes pulseSoft {
@@ -155,11 +196,96 @@ body > * {
   border-radius: 4px;
 }
 
+/* Elevated panels that must not create a containing block for portaled pickers */
+.surface-elevated {
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--card-hover) 70%, #1a3348) 0%,
+      var(--card) 42%,
+      color-mix(in srgb, var(--card) 88%, #000) 100%
+    );
+  border: 1px solid color-mix(in srgb, var(--border) 85%, #6a8aaa);
+  box-shadow: var(--shadow-float);
+}
+
+/* Raised “slab” panels — used by cards across the app */
+.surface-3d {
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--card-hover) 70%, #1a3348) 0%,
+      var(--card) 42%,
+      color-mix(in srgb, var(--card) 88%, #000) 100%
+    );
+  border: 1px solid color-mix(in srgb, var(--border) 85%, #6a8aaa);
+  box-shadow: var(--shadow);
+  transform: translateZ(0);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .surface-3d:hover {
+    transform: translateY(-2px) translateZ(12px);
+    box-shadow: var(--shadow-float);
+    border-color: color-mix(in srgb, var(--border) 70%, var(--primary));
+  }
+}
+
+.surface-recessed {
+  box-shadow: var(--shadow-inset);
+  background: color-mix(in srgb, var(--input) 92%, #000);
+}
+
+.brand-3d {
+  transform: perspective(600px) rotateX(8deg) rotateY(-6deg);
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.45)) drop-shadow(0 4px 10px rgba(77, 176, 255, 0.35));
+  transition: transform 220ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .brand-3d:hover {
+    transform: perspective(600px) rotateX(2deg) rotateY(2deg) translateY(-2px);
+  }
+}
+
+.auth-card-3d {
+  transform: perspective(900px) rotateX(2.5deg);
+  transform-origin: center top;
+  box-shadow: var(--shadow-float);
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--card-hover) 65%, #1e3a52) 0%,
+      color-mix(in srgb, var(--card) 92%, transparent) 50%,
+      color-mix(in srgb, var(--card) 80%, #000) 100%
+    );
+}
+
+/* Floating mobile dock — raised pill above the stage floor */
+.nav-dock-3d {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, #7a9ab8);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--card-hover) 75%, #1a3348) 0%,
+      color-mix(in srgb, var(--card) 92%, transparent) 100%
+    );
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.4) inset,
+    0 8px 20px rgba(0, 0, 0, 0.35),
+    0 28px 56px rgba(0, 0, 0, 0.45);
+}
+
 input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
 textarea,
 select {
   background-color: var(--input);
   color: var(--foreground);
+  box-shadow: var(--shadow-inset);
+  border-color: color-mix(in srgb, var(--border) 90%, #000);
 }
 
 input::placeholder,
@@ -170,7 +296,7 @@ textarea::placeholder {
 select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238494a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aabbe' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 36px !important;

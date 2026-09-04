@@ -334,7 +334,7 @@ export default function SettingsPage() {
         </div>
 
         <form onSubmit={handleSave} className="space-y-5">
-          <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
+          <div className="surface-3d rounded-2xl p-5 space-y-4">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <LockIcon size={16} />
               HRMS Credentials
@@ -366,7 +366,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
+          <div className="surface-3d rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <MapPinIcon size={16} />
@@ -419,7 +419,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
+          <div className="surface-3d rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <ClockIcon size={16} />
@@ -511,7 +511,7 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
+          <div className="surface-3d rounded-2xl p-5 space-y-4">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <CalendarIcon size={16} />
               Skip Days

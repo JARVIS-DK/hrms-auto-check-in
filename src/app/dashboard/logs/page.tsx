@@ -114,7 +114,7 @@ export default function LogsPage() {
           </button>
         </div>
 
-        <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+        <div className="surface-3d rounded-2xl p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="w-full sm:w-auto min-w-0">
               <label className="block text-xs font-medium text-muted mb-1.5">Date</label>
@@ -168,7 +168,7 @@ export default function LogsPage() {
         {error && !loading ? (
           <LoadError message={error} onRetry={bumpReload} />
         ) : (
-          <div className="bg-card/80 border border-border rounded-2xl overflow-hidden shadow-[var(--shadow)]">
+          <div className="surface-3d rounded-2xl overflow-hidden">
             <Table label="Your check-in and check-out history">
               <THead>
                 <Th>Action</Th>

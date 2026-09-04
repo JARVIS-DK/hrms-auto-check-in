@@ -95,9 +95,9 @@ export default function Modal({ open, onClose, title, children, maxWidth = "xs" 
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className={`relative bg-card border border-border rounded-2xl p-6 w-full ${WIDTHS[maxWidth]} shadow-[var(--shadow)] animate-[scaleIn_150ms_ease-out] max-h-[85vh] overflow-y-auto`}
+        className={`relative surface-elevated rounded-2xl p-6 w-full ${WIDTHS[maxWidth]} animate-[scaleIn_150ms_ease-out] max-h-[min(85dvh,100dvh-2rem)] flex flex-col overflow-hidden`}
       >
-        {children}
+        <div className="min-h-0 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );

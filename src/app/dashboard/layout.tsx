@@ -133,9 +133,9 @@ export default function DashboardLayout({
   return (
     <PullRefreshProvider>
       <div className="flex h-dvh max-h-dvh flex-col overflow-hidden">
-        <header className="md:hidden sticky top-0 z-40 shrink-0 bg-card/85 border-b border-border px-4 py-3 flex items-center justify-between gap-2 backdrop-blur-md">
+        <header className="md:hidden sticky top-0 z-40 shrink-0 bg-card/85 border-b border-border px-4 py-3 flex items-center justify-between gap-2 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
           <div className="flex items-center gap-2.5 min-w-0">
-            <BrandMark size={32} />
+            <BrandMark size={32} className="brand-3d" />
             <div className="min-w-0">
               <h1 className="font-display text-sm tracking-tight truncate leading-tight">ShiftSync</h1>
               <p className="text-[11px] text-muted truncate">Check in/out</p>
@@ -151,9 +151,9 @@ export default function DashboardLayout({
         </header>
 
         <div className="flex-1 flex min-h-0 overflow-hidden">
-          <nav className="hidden md:flex shrink-0 w-56 2xl:w-64 bg-card/70 border-r border-border p-3 flex-col gap-0.5 overflow-y-auto min-h-0 backdrop-blur-md">
+          <nav className="hidden md:flex shrink-0 w-56 2xl:w-64 bg-card/70 border-r border-border p-3 flex-col gap-0.5 overflow-y-auto min-h-0 backdrop-blur-md shadow-[12px_0_40px_rgba(0,0,0,0.22)]">
             <div className="flex items-center gap-2.5 px-2 py-3 mb-2">
-              <BrandMark size={32} />
+              <BrandMark size={32} className="brand-3d" />
               <div className="min-w-0">
                 <p className="font-display text-[0.95rem] tracking-tight leading-tight">ShiftSync</p>
                 <p className="text-[11px] text-muted">Check in/out</p>
@@ -173,7 +173,7 @@ export default function DashboardLayout({
         <div className="md:hidden shrink-0 px-3 pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pointer-events-none">
           <nav
             aria-label="Primary"
-            className="pointer-events-auto rounded-2xl border border-border/80 bg-card/90 shadow-[0_-1px_0_rgba(255,255,255,0.06)_inset,0_12px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+            className="nav-dock-3d pointer-events-auto rounded-2xl backdrop-blur-xl"
           >
             <ul className="relative flex items-stretch gap-0.5 p-1.5">
               {visibleNavItems.map((item) => {

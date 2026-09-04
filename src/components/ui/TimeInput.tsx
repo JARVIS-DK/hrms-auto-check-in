@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ClockIcon } from "@/components/ui/icons";
 
 interface TimeInputProps {
@@ -18,6 +19,7 @@ const PANEL_WIDTH = 300;
 const PANEL_HEIGHT = 430;
 const VIEW_PAD = 12;
 const GAP = 6;
+const CLOSE_EVENT = "shiftsync:close-pickers";
 
 function parseValue(value: string) {
   if (!value || !/^\d{2}:\d{2}$/.test(value)) {
@@ -41,7 +43,6 @@ function toValue(hour12: number, minute: number, isPM: boolean) {
   return `${String(hour24).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-/** Angle in degrees from 12 o'clock, clockwise. */
 function angleFromPointer(clientX: number, clientY: number, rect: DOMRect) {
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
@@ -53,13 +54,11 @@ function angleFromPointer(clientX: number, clientY: number, rect: DOMRect) {
 }
 
 function hourFromAngle(deg: number) {
-  const idx = Math.round(deg / 30) % 12;
-  return HOURS[idx];
+  return HOURS[Math.round(deg / 30) % 12];
 }
 
 function minuteFromAngle(deg: number) {
-  const idx = Math.round(deg / 30) % 12;
-  return MINUTES[idx];
+  return MINUTES[Math.round(deg / 30) % 12];
 }
 
 function dialPoint(index: number, radius: number) {
@@ -74,11 +73,11 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
-function positionPanel(anchor: DOMRect, panelHeight: number) {
+function positionPanel(anchor: DOMRect) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const width = Math.min(PANEL_WIDTH, vw - VIEW_PAD * 2);
-  const height = Math.min(panelHeight || PANEL_HEIGHT, vh - VIEW_PAD * 2);
+  const height = Math.min(PANEL_HEIGHT, vh - VIEW_PAD * 2);
 
   const spaceBelow = vh - anchor.bottom - VIEW_PAD;
   const spaceAbove = anchor.top - VIEW_PAD;
@@ -87,7 +86,6 @@ function positionPanel(anchor: DOMRect, panelHeight: number) {
   let top = placeAbove ? anchor.top - GAP - height : anchor.bottom + GAP;
   let left = anchor.left;
 
-  // Prefer aligning to the trigger; flip/clamp if it would overflow horizontally.
   if (left + width > vw - VIEW_PAD) left = anchor.right - width;
   left = clamp(left, VIEW_PAD, vw - VIEW_PAD - width);
   top = clamp(top, VIEW_PAD, vh - VIEW_PAD - height);
@@ -96,6 +94,7 @@ function positionPanel(anchor: DOMRect, panelHeight: number) {
 }
 
 export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInputProps) {
+  const pickerId = useId();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("hour");
   const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -121,8 +120,7 @@ export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInp
   const updatePosition = useCallback(() => {
     const anchor = rootRef.current?.getBoundingClientRect();
     if (!anchor) return;
-    const measured = panelRef.current?.offsetHeight ?? PANEL_HEIGHT;
-    setCoords(positionPanel(anchor, measured));
+    setCoords(positionPanel(anchor));
   }, []);
 
   useLayoutEffect(() => {
@@ -131,22 +129,47 @@ export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInp
       return;
     }
     updatePosition();
-    // Remeasure after paint so height clamp uses the real panel size.
-    const id = requestAnimationFrame(updatePosition);
-    return () => cancelAnimationFrame(id);
   }, [open, updatePosition]);
+
+  const handleCancel = useCallback(() => {
+    onChange(snapshot.current);
+    setOpen(false);
+  }, [onChange]);
 
   useEffect(() => {
     if (!open) return;
+
+    const onCloseOthers = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== pickerId) setOpen(false);
+    };
+    window.addEventListener(CLOSE_EVENT, onCloseOthers);
+    window.dispatchEvent(new CustomEvent(CLOSE_EVENT, { detail: pickerId }));
+
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      handleCancel();
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleCancel();
+    };
+    document.addEventListener("keydown", onKeyDown);
+
     const onReposition = () => updatePosition();
     window.addEventListener("resize", onReposition);
-    // Capture scroll from nested dashboard panels too.
     window.addEventListener("scroll", onReposition, true);
+
     return () => {
+      window.removeEventListener(CLOSE_EVENT, onCloseOthers);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("resize", onReposition);
       window.removeEventListener("scroll", onReposition, true);
     };
-  }, [open, updatePosition]);
+  }, [open, pickerId, updatePosition, handleCancel]);
 
   function handleOpen() {
     if (!open) {
@@ -158,18 +181,12 @@ export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInp
     setOpen(true);
   }
 
-  function handleCancel() {
-    onChange(snapshot.current);
-    setOpen(false);
-  }
-
   function applyFromEvent(clientX: number, clientY: number, advance: boolean) {
     const el = dialRef.current;
     if (!el) return;
     const deg = angleFromPointer(clientX, clientY, el.getBoundingClientRect());
     if (mode === "hour") {
-      const h = hourFromAngle(deg);
-      commit(h, minute, isPM);
+      commit(hourFromAngle(deg), minute, isPM);
       if (advance) setMode("minute");
     } else {
       commit(hour12, minuteFromAngle(deg), isPM);
@@ -201,6 +218,160 @@ export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInp
     if (!hasValue) return "";
     return `${String(hour12).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${isPM ? "PM" : "AM"}`;
   }
+
+  const panel =
+    open && coords && typeof document !== "undefined"
+      ? createPortal(
+          <>
+            <div
+              aria-hidden="true"
+              className="fixed inset-0 z-[70] bg-black/20"
+              style={{ pointerEvents: "auto" }}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                handleCancel();
+              }}
+              data-portal="time-backdrop"
+            />
+            <div
+              ref={panelRef}
+              data-portal="time-picker"
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{
+                position: "fixed",
+                top: coords.top,
+                left: coords.left,
+                width: coords.width,
+                zIndex: 80,
+                maxHeight: "calc(100dvh - 24px)",
+                pointerEvents: "auto",
+              }}
+              className="overflow-y-auto surface-elevated rounded-2xl p-4"
+            >
+              <p className="text-xs font-medium text-muted mb-3">Select time</p>
+
+              <div className="flex items-stretch gap-3 mb-4">
+                <div className="flex flex-1 items-center gap-1.5 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setMode("hour")}
+                    className={`flex-1 py-3 rounded-xl text-center font-mono text-3xl font-semibold tabular-nums tracking-tight transition-colors ${
+                      mode === "hour"
+                        ? "bg-primary/20 text-primary ring-1 ring-primary/40"
+                        : "bg-input text-foreground hover:bg-primary/10"
+                    }`}
+                  >
+                    {String(hour12).padStart(2, "0")}
+                  </button>
+                  <span className="text-3xl font-semibold text-muted pb-0.5">:</span>
+                  <button
+                    type="button"
+                    onClick={() => setMode("minute")}
+                    className={`flex-1 py-3 rounded-xl text-center font-mono text-3xl font-semibold tabular-nums tracking-tight transition-colors ${
+                      mode === "minute"
+                        ? "bg-primary/20 text-primary ring-1 ring-primary/40"
+                        : "bg-input text-foreground hover:bg-primary/10"
+                    }`}
+                  >
+                    {String(minute).padStart(2, "0")}
+                  </button>
+                </div>
+
+                <div className="flex flex-col w-14 rounded-xl border border-border overflow-hidden shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => commit(hour12, minute, false)}
+                    className={`flex-1 text-xs font-bold tracking-wide transition-colors ${
+                      !isPM
+                        ? "bg-primary/20 text-primary"
+                        : "bg-input text-muted hover:text-foreground hover:bg-primary/10"
+                    }`}
+                  >
+                    AM
+                  </button>
+                  <div className="h-px bg-border" />
+                  <button
+                    type="button"
+                    onClick={() => commit(hour12, minute, true)}
+                    className={`flex-1 text-xs font-bold tracking-wide transition-colors ${
+                      isPM
+                        ? "bg-primary/20 text-primary"
+                        : "bg-input text-muted hover:text-foreground hover:bg-primary/10"
+                    }`}
+                  >
+                    PM
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-full bg-input/80 p-2">
+                <svg
+                  ref={dialRef}
+                  viewBox="0 0 240 240"
+                  className="w-full touch-none select-none cursor-pointer"
+                  onPointerDown={onDialPointerDown}
+                  onPointerMove={onDialPointerMove}
+                  onPointerUp={onDialPointerUp}
+                  onPointerCancel={() => {
+                    dragging.current = false;
+                  }}
+                >
+                  <circle cx="120" cy="120" r="112" fill="transparent" />
+                  <line
+                    x1="120"
+                    y1="120"
+                    x2={hand.x}
+                    y2={hand.y}
+                    stroke="var(--primary)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="120" cy="120" r="5" fill="var(--primary)" />
+                  <circle cx={hand.x} cy={hand.y} r="22" fill="var(--primary)" />
+                  {labels.map((label, i) => {
+                    const p = dialPoint(i, 78);
+                    const selected = i === selectedIndex;
+                    return (
+                      <text
+                        key={`${mode}-${label}`}
+                        x={p.x}
+                        y={p.y}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        className="pointer-events-none"
+                        fill={selected ? "#fff" : "var(--foreground)"}
+                        fontSize={mode === "minute" ? 13 : 15}
+                        fontWeight={selected ? 600 : 500}
+                        fontFamily="var(--font-sans), ui-sans-serif, sans-serif"
+                      >
+                        {label}
+                      </text>
+                    );
+                  })}
+                </svg>
+              </div>
+
+              <div className="flex justify-end gap-1 mt-3">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="px-3 py-1.5 text-xs font-semibold text-muted hover:text-foreground rounded-lg hover:bg-background transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </>,
+          document.body
+        )
+      : null;
 
   return (
     <div className="relative" ref={rootRef}>
@@ -234,142 +405,7 @@ export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInp
         </button>
       )}
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={handleCancel} />
-          <div
-            ref={panelRef}
-            style={
-              coords
-                ? { top: coords.top, left: coords.left, width: coords.width }
-                : { top: -9999, left: -9999, width: PANEL_WIDTH, visibility: "hidden" }
-            }
-            className="fixed z-50 max-h-[calc(100dvh-24px)] overflow-y-auto bg-card border border-border rounded-2xl shadow-[var(--shadow)] p-4 animate-[scaleIn_100ms_ease-out]"
-          >
-            <p className="text-xs font-medium text-muted mb-3">Select time</p>
-
-            <div className="flex items-stretch gap-3 mb-4">
-              <div className="flex flex-1 items-center gap-1.5 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => setMode("hour")}
-                  className={`flex-1 py-3 rounded-xl text-center font-mono text-3xl font-semibold tabular-nums tracking-tight transition-colors ${
-                    mode === "hour"
-                      ? "bg-primary/20 text-primary ring-1 ring-primary/40"
-                      : "bg-input text-foreground hover:bg-primary/10"
-                  }`}
-                >
-                  {String(hour12).padStart(2, "0")}
-                </button>
-                <span className="text-3xl font-semibold text-muted pb-0.5">:</span>
-                <button
-                  type="button"
-                  onClick={() => setMode("minute")}
-                  className={`flex-1 py-3 rounded-xl text-center font-mono text-3xl font-semibold tabular-nums tracking-tight transition-colors ${
-                    mode === "minute"
-                      ? "bg-primary/20 text-primary ring-1 ring-primary/40"
-                      : "bg-input text-foreground hover:bg-primary/10"
-                  }`}
-                >
-                  {String(minute).padStart(2, "0")}
-                </button>
-              </div>
-
-              <div className="flex flex-col w-14 rounded-xl border border-border overflow-hidden shrink-0">
-                <button
-                  type="button"
-                  onClick={() => commit(hour12, minute, false)}
-                  className={`flex-1 text-xs font-bold tracking-wide transition-colors ${
-                    !isPM
-                      ? "bg-primary/20 text-primary"
-                      : "bg-input text-muted hover:text-foreground hover:bg-primary/10"
-                  }`}
-                >
-                  AM
-                </button>
-                <div className="h-px bg-border" />
-                <button
-                  type="button"
-                  onClick={() => commit(hour12, minute, true)}
-                  className={`flex-1 text-xs font-bold tracking-wide transition-colors ${
-                    isPM
-                      ? "bg-primary/20 text-primary"
-                      : "bg-input text-muted hover:text-foreground hover:bg-primary/10"
-                  }`}
-                >
-                  PM
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-full bg-input/80 p-2">
-              <svg
-                ref={dialRef}
-                viewBox="0 0 240 240"
-                className="w-full touch-none select-none cursor-pointer"
-                onPointerDown={onDialPointerDown}
-                onPointerMove={onDialPointerMove}
-                onPointerUp={onDialPointerUp}
-                onPointerCancel={() => {
-                  dragging.current = false;
-                }}
-              >
-                <circle cx="120" cy="120" r="112" fill="transparent" />
-
-                <line
-                  x1="120"
-                  y1="120"
-                  x2={hand.x}
-                  y2={hand.y}
-                  stroke="var(--primary)"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <circle cx="120" cy="120" r="5" fill="var(--primary)" />
-                <circle cx={hand.x} cy={hand.y} r="22" fill="var(--primary)" />
-
-                {labels.map((label, i) => {
-                  const p = dialPoint(i, 78);
-                  const selected = i === selectedIndex;
-                  return (
-                    <text
-                      key={`${mode}-${label}`}
-                      x={p.x}
-                      y={p.y}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      className="pointer-events-none"
-                      fill={selected ? "#fff" : "var(--foreground)"}
-                      fontSize={mode === "minute" ? 13 : 15}
-                      fontWeight={selected ? 600 : 500}
-                      fontFamily="var(--font-sans), ui-sans-serif, sans-serif"
-                    >
-                      {label}
-                    </text>
-                  );
-                })}
-              </svg>
-            </div>
-
-            <div className="flex justify-end gap-1 mt-3">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="px-3 py-1.5 text-xs font-semibold text-muted hover:text-foreground rounded-lg hover:bg-background transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 rounded-lg transition-colors"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      {panel}
     </div>
   );
 }

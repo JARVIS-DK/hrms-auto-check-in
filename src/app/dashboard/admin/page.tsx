@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useToast } from "@/components/ui/Toast";
 import DateInput from "@/components/ui/DateInput";
 import TimeInput from "@/components/ui/TimeInput";
@@ -240,7 +240,6 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("users");
   const [loading, setLoading] = useState(true);
   const [tabError, setTabError] = useState("");
-  const tabBarRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const todayISO = new Date().toISOString().split("T")[0];
@@ -530,13 +529,6 @@ export default function AdminPage() {
     loadTab(activeTab);
   }, [activeTab, loadTab]);
 
-  useEffect(() => {
-    const root = tabBarRef.current;
-    if (!root) return;
-    const active = root.querySelector<HTMLElement>("[data-active='true']");
-    active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [activeTab]);
-
   function switchTab(tab: Tab) {
     if (tab === activeTab) return;
     setTabError("");
@@ -808,10 +800,7 @@ export default function AdminPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div
-          ref={tabBarRef}
-          className="flex gap-1 p-1 bg-input/80 border border-border rounded-2xl overflow-x-auto overscroll-x-contain scrollbar-thin"
-        >
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 p-1 bg-input/80 border border-border rounded-2xl">
           {([
             { id: "users", label: "Users", icon: <UsersIcon size={16} /> },
             { id: "logs", label: "Logs", icon: <ActivityIcon size={16} /> },
@@ -822,16 +811,15 @@ export default function AdminPage() {
           ] as const).map((tab) => (
             <button
               key={tab.id}
-              data-active={activeTab === tab.id || undefined}
               onClick={() => switchTab(tab.id)}
-              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2.5 text-xs sm:text-sm font-medium rounded-xl whitespace-nowrap shrink-0 transition-colors ${
+              className={`flex items-center justify-center gap-1.5 px-1.5 sm:px-2 py-2.5 text-[11px] sm:text-sm font-medium rounded-xl transition-colors min-w-0 ${
                 activeTab === tab.id
                   ? "bg-card text-primary shadow-sm ring-1 ring-border"
                   : "text-muted hover:text-foreground"
               }`}
             >
-              {tab.icon}
-              {tab.label}
+              <span className="shrink-0">{tab.icon}</span>
+              <span className="truncate">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -845,11 +833,11 @@ export default function AdminPage() {
           <div className="space-y-4">
             {/* Snapshot counts */}
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              <div className="rounded-2xl border border-border bg-card/80 px-3 py-3 sm:px-4 shadow-[var(--shadow)]">
+              <div className="surface-3d rounded-2xl px-3 py-3 sm:px-4">
                 <p className="text-[11px] uppercase tracking-wider text-muted">Users</p>
                 <p className="text-xl font-semibold tabular-nums mt-0.5">{userStats.total}</p>
               </div>
-              <div className="rounded-2xl border border-border bg-card/80 px-3 py-3 sm:px-4 shadow-[var(--shadow)]">
+              <div className="surface-3d rounded-2xl px-3 py-3 sm:px-4">
                 <p className="text-[11px] uppercase tracking-wider text-muted">Scheduler on</p>
                 <p className="text-xl font-semibold tabular-nums mt-0.5 text-success">{userStats.automationOn}</p>
               </div>
@@ -858,10 +846,10 @@ export default function AdminPage() {
                 onClick={() =>
                   setCredentialFilter((prev) => (prev === "missing" ? "all" : "missing"))
                 }
-                className={`rounded-2xl border px-3 py-3 sm:px-4 shadow-[var(--shadow)] text-left transition-colors ${
+                className={`surface-3d rounded-2xl px-3 py-3 sm:px-4 text-left transition-colors ${
                   credentialFilter === "missing"
-                    ? "border-warning/50 bg-warning/10"
-                    : "border-border bg-card/80 hover:border-warning/40"
+                    ? "!border-warning/50 !bg-warning/10"
+                    : "hover:!border-warning/40"
                 }`}
               >
                 <p className="text-[11px] uppercase tracking-wider text-muted">No password</p>
@@ -873,7 +861,7 @@ export default function AdminPage() {
 
             {/* Global Defaults Card */}
             {globalDefaults && (
-              <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+              <div className="surface-3d rounded-2xl p-4">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-primary/10 shrink-0">
@@ -906,7 +894,7 @@ export default function AdminPage() {
             )}
 
             {/* Filters */}
-            <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+            <div className="surface-3d rounded-2xl p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                 <div className="w-full sm:flex-1 sm:min-w-[200px]">
                   <label htmlFor="admin-search" className="block text-xs font-medium text-muted mb-1.5">Search</label>
@@ -984,8 +972,8 @@ export default function AdminPage() {
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-3 pl-[52px]">
-                          <span className="text-xs text-muted">Scheduler</span>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-xs text-muted shrink-0">Scheduler</span>
                             <AutomationToggle
                               enabled={user.automationEnabled}
                               dimmed={!user.hasPassword && !user.automationEnabled}
@@ -993,17 +981,19 @@ export default function AdminPage() {
                               name={user.name}
                               onClick={() => requestAutomationToggle(user)}
                             />
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
                               onClick={() => openUserLogs(user.id)}
-                              className="text-xs font-medium text-muted hover:text-foreground"
+                              className="h-8 px-2 rounded-lg text-xs font-medium text-muted hover:text-foreground hover:bg-white/[0.05] transition-colors"
                             >
                               Logs
                             </button>
                             <button
                               type="button"
                               onClick={() => setManagingUser(user)}
-                              className="text-sm font-medium text-primary"
+                              className="h-8 px-2 rounded-lg text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
                             >
                               Manage
                             </button>
@@ -1100,25 +1090,25 @@ export default function AdminPage() {
               open={editingDefaults}
               onClose={cancelEditing}
               title="Edit Default Schedule Times"
-              maxWidth="md"
+              maxWidth="lg"
             >
               <div>
                 <div>
                   <h3 className="text-base font-semibold mb-1">Edit Default Schedule Times</h3>
-                  <p className="text-xs text-muted mb-5">
+                  <p className="text-xs text-muted mb-4">
                     These defaults apply to all users who haven&apos;t set custom times.
                   </p>
 
-                  <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {draft &&
                       WINDOWS.map((window) => (
-                        <div key={window.label}>
-                          <label className="block text-xs font-medium text-muted">
+                        <div key={window.label} className="rounded-xl border border-border/70 bg-input/40 p-3">
+                          <label className="block text-xs font-medium text-foreground">
                             {window.label} Window
                           </label>
-                          <p className="text-[11px] text-muted/70 mb-2">{window.hint}</p>
-                          <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
-                            <div>
+                          <p className="text-[11px] text-muted mb-2.5">{window.hint}</p>
+                          <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+                            <div className="min-w-0">
                               <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
                               <TimeInput
                                 value={draft[window.start]}
@@ -1126,8 +1116,10 @@ export default function AdminPage() {
                                 onClear={() => updateDraft(window.start, "")}
                               />
                             </div>
-                            <span className="text-muted text-xs mt-5">—</span>
-                            <div>
+                            <span className="text-muted text-xs pb-3.5" aria-hidden="true">
+                              —
+                            </span>
+                            <div className="min-w-0">
                               <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
                               <TimeInput
                                 value={draft[window.end]}
@@ -1140,7 +1132,7 @@ export default function AdminPage() {
                       ))}
                   </div>
 
-                  <div className="flex gap-3 mt-6">
+                  <div className="flex gap-3 mt-5">
                     <button
                       onClick={cancelEditing}
                       className="flex-1 py-2.5 border border-border rounded-xl font-medium text-sm hover:bg-background transition-colors"
@@ -1224,7 +1216,7 @@ export default function AdminPage() {
               </div>
             )}
             {/* Filters */}
-            <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+            <div className="surface-3d rounded-2xl p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1.5">User</label>
@@ -1290,7 +1282,7 @@ export default function AdminPage() {
             </div>
 
             {/* Logs table */}
-            <div className="bg-card/80 border border-border rounded-2xl overflow-hidden shadow-[var(--shadow)]">
+            <div className="surface-3d rounded-2xl overflow-hidden">
               <Table label="Activity logs for all users">
                 <THead>
                   <Th>User</Th>
@@ -1400,7 +1392,7 @@ export default function AdminPage() {
         {!tabError && activeTab === "leaves" && (
           <div className="space-y-4">
             {/* Filters */}
-            <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+            <div className="surface-3d rounded-2xl p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1.5">User</label>
@@ -1507,7 +1499,7 @@ export default function AdminPage() {
         {!tabError && activeTab === "scheduled" && (
           <div className="space-y-4">
             {/* Filters */}
-            <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
+            <div className="surface-3d rounded-2xl p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1.5">User</label>
@@ -1678,7 +1670,7 @@ export default function AdminPage() {
         {!tabError && activeTab === "holidays" && (
           <div className="space-y-4">
             {/* Add holiday */}
-            <div className="bg-card/80 border border-border rounded-2xl p-5 shadow-[var(--shadow)]">
+            <div className="surface-3d rounded-2xl p-5">
               <h3 className="text-sm font-semibold">Add a public holiday</h3>
               <p className="text-xs text-muted mt-0.5 mb-4">
                 Attendance is skipped for every user on these dates, ahead of their own leave.
@@ -1813,7 +1805,7 @@ export default function AdminPage() {
         {!tabError && activeTab === "invites" && (
           <div className="space-y-4">
             {/* Create invite */}
-            <div className="bg-card/80 border border-border rounded-2xl p-5 shadow-[var(--shadow)]">
+            <div className="surface-3d rounded-2xl p-5">
               <h3 className="text-sm font-semibold">Invite a new user</h3>
               <p className="text-xs text-muted mt-0.5 mb-4">
                 Registration is invite-only. The link works once, only for the address below, and

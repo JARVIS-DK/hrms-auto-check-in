@@ -9,7 +9,7 @@ export default function LoadError({
   onRetry: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card/80 px-5 py-10 text-center shadow-[var(--shadow)]">
+    <div className="surface-3d rounded-2xl px-5 py-10 text-center">
       <p className="text-sm text-muted">{message}</p>
       <button
         type="button"
