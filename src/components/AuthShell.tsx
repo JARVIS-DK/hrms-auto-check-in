@@ -25,10 +25,10 @@ export default function AuthShell({
             <BrandMark size={56} className="relative" />
           </div>
           <p className="font-display text-[1.65rem] leading-tight tracking-[-0.02em] text-foreground">
-            HRMS Auto Check-in
+            ShiftSync
           </p>
           <p className="text-sm text-muted mt-1.5 max-w-[20rem]">
-            Attendance that runs itself
+            Check in/out
           </p>
         </div>
 

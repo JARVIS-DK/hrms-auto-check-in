@@ -5,6 +5,8 @@ import { useToast } from "@/components/ui/Toast";
 import DateInput from "@/components/ui/DateInput";
 import TimeInput from "@/components/ui/TimeInput";
 import { ConfirmDialog } from "@/components/ui/Modal";
+import LoadError from "@/components/ui/LoadError";
+import { useRegisterPullRefresh } from "@/components/ui/PullToRefresh";
 import {
   Table,
   THead,
@@ -95,16 +97,33 @@ function formatRange(start: string, end: string): string {
   return `${formatTime(start)} – ${formatTime(end)}`;
 }
 
+function expandDateRange(start: string, end: string): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(start + "T00:00");
+  const last = new Date((end || start) + "T00:00");
+  if (last < cursor) return [start];
+  while (cursor <= last) {
+    const y = cursor.getFullYear();
+    const m = String(cursor.getMonth() + 1).padStart(2, "0");
+    const d = String(cursor.getDate()).padStart(2, "0");
+    dates.push(`${y}-${m}-${d}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
 export default function LeavesPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [effective, setEffective] = useState<Effective | null>(null);
   const [newDate, setNewDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [type, setType] = useState<LeaveType>("full");
   const [windowStart, setWindowStart] = useState("");
   const [windowEnd, setWindowEnd] = useState("");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [adding, setAdding] = useState(false);
   const [showPast, setShowPast] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -179,16 +198,21 @@ export default function LeavesPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const fetchLeaves = useCallback(() => setReloadKey((k) => k + 1), []);
 
+  useRegisterPullRefresh(() => {
+    setLoading(true);
+    setLoadError("");
+    fetchLeaves();
+  }, [fetchLeaves]);
+
   useEffect(() => {
     const controller = new AbortController();
+    setLoadError("");
 
     Promise.all([
       fetch("/api/leaves", { signal: controller.signal }).then((res) => {
         if (!res.ok) throw new Error("Failed to load leaves");
         return res.json();
       }),
-      // Holidays and schedule windows are advisory here — a failure in either
-      // shouldn't block the leave list.
       fetch("/api/holidays", { signal: controller.signal })
         .then((res) => (res.ok ? res.json() : []))
         .catch(() => []),
@@ -204,6 +228,7 @@ export default function LeavesPage() {
       })
       .catch((err: Error) => {
         if (controller.signal.aborted) return;
+        setLoadError(err.message === "Failed to load leaves" ? err.message : "Network error");
         toast(err.message === "Failed to load leaves" ? err.message : "Network error", "error");
         setLoading(false);
       });
@@ -214,7 +239,11 @@ export default function LeavesPage() {
   async function addLeave(e: React.FormEvent) {
     e.preventDefault();
     if (!newDate) {
-      toast("Please select a date", "error");
+      toast("Please select a start date", "error");
+      return;
+    }
+    if (endDate && endDate < newDate) {
+      toast("End date must be on or after the start date", "error");
       return;
     }
     if (type !== "full" && Boolean(windowStart) !== Boolean(windowEnd)) {
@@ -226,6 +255,12 @@ export default function LeavesPage() {
       return;
     }
 
+    const dates = expandDateRange(newDate, endDate || newDate);
+    if (dates.length > 60) {
+      toast("At most 60 days per request", "error");
+      return;
+    }
+
     setAdding(true);
 
     try {
@@ -233,10 +268,9 @@ export default function LeavesPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dates: [newDate],
+          dates,
           type,
           reason: reason || undefined,
-          // Only meaningful on a half day; the API rejects it on a full day.
           windowStart: type === "full" ? "" : windowStart,
           windowEnd: type === "full" ? "" : windowEnd,
         }),
@@ -249,8 +283,12 @@ export default function LeavesPage() {
         return;
       }
 
-      toast("Leave added successfully", "success");
+      toast(
+        dates.length > 1 ? `Leave added for ${dates.length} days` : "Leave added successfully",
+        "success"
+      );
       setNewDate("");
+      setEndDate("");
       setType("full");
       setWindowStart("");
       setWindowEnd("");
@@ -278,7 +316,6 @@ export default function LeavesPage() {
 
   return (
     <div className="w-full max-w-xl 2xl:max-w-3xl mx-auto space-y-5">
-        {/* Header */}
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Leave Dates</h2>
           <p className="text-sm text-muted mt-0.5">
@@ -287,30 +324,54 @@ export default function LeavesPage() {
           </p>
         </div>
 
+        {loadError && !loading ? (
+          <LoadError
+            message={loadError}
+            onRetry={() => {
+              setLoading(true);
+              setLoadError("");
+              fetchLeaves();
+            }}
+          />
+        ) : null}
+
         {/* Add Leave Form */}
         <div className="bg-card/80 border border-border rounded-2xl p-5 shadow-[var(--shadow)]">
           <h3 className="text-sm font-semibold mb-3">Add New Leave</h3>
           <form onSubmit={addLeave} className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-medium text-muted mb-1.5">Date</label>
+                <label className="block text-xs font-medium text-muted mb-1.5">From</label>
                 <DateInput
                   value={newDate}
-                  onChange={setNewDate}
+                  onChange={(v) => {
+                    setNewDate(v);
+                    if (endDate && endDate < v) setEndDate("");
+                  }}
                   min={today}
                 />
               </div>
               <div>
-                <label htmlFor="leaves-reason-optional" className="block text-xs font-medium text-muted mb-1.5">Reason (optional)</label>
-                <input id="leaves-reason-optional"
-                  type="text"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g. Sick leave"
-                  maxLength={200}
-                  className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                <label className="block text-xs font-medium text-muted mb-1.5">
+                  To <span className="font-normal">(optional)</span>
+                </label>
+                <DateInput
+                  value={endDate}
+                  onChange={setEndDate}
+                  min={newDate || today}
                 />
               </div>
+            </div>
+            <div>
+              <label htmlFor="leaves-reason-optional" className="block text-xs font-medium text-muted mb-1.5">Reason (optional)</label>
+              <input id="leaves-reason-optional"
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="e.g. Sick leave"
+                maxLength={200}
+                className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+              />
             </div>
 
             <div>
@@ -367,7 +428,12 @@ export default function LeavesPage() {
             {preview && (
               <div className="p-3.5 bg-background rounded-xl border border-border">
                 <p className="text-xs font-medium mb-2.5">
-                  {newDate ? `On ${formatLeaveDate(newDate)}` : "On that day"}, the scheduler will:
+                  {newDate
+                    ? endDate && endDate !== newDate
+                      ? `From ${formatLeaveDate(newDate)} to ${formatLeaveDate(endDate)}`
+                      : `On ${formatLeaveDate(newDate)}`
+                    : "On that day"}
+                  , the scheduler will:
                 </p>
                 <div className="space-y-2">
                   {([
@@ -455,7 +521,7 @@ export default function LeavesPage() {
 
             {/* The scheduler already skips holidays for everyone, so booking
                 leave on one achieves nothing. */}
-            {newDate && holidayOn.has(newDate) && (
+            {newDate && holidayOn.has(newDate) && !(endDate && endDate !== newDate) && (
               <div className="flex items-start gap-2 px-3 py-2.5 bg-primary/10 border border-primary/20 rounded-xl">
                 <InfoIcon size={14} stroke="var(--primary)" className="shrink-0 mt-0.5" />
                 <p className="text-xs text-primary">
@@ -478,7 +544,7 @@ export default function LeavesPage() {
               ) : (
                 <span className="flex items-center justify-center gap-1.5">
                   <PlusIcon size={16} />
-                  Add Leave
+                  {endDate && endDate !== newDate ? "Add Leave Range" : "Add Leave"}
                 </span>
               )}
             </button>
@@ -578,7 +644,7 @@ export default function LeavesPage() {
                       <Td className="text-right">
                         <button
                           onClick={() => setDeleteConfirm(leave.date)}
-                          className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                          className="w-10 h-10 inline-flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-colors"
                           aria-label={`Remove leave on ${formatLeaveDate(leave.date)}`}
                         >
                           <TrashIcon size={14} />

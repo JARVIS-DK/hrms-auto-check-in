@@ -1,20 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #071018;
-  --foreground: #eef3f8;
-  --card: #0e1824;
-  --card-hover: #132030;
-  --input: #0a121c;
-  --primary: #3d9cf0;
-  --primary-hover: #2f8bde;
-  --danger: #f07178;
-  --success: #2ecf9a;
-  --warning: #e6b84d;
-  --muted: #8494a8;
-  --border: #1c2a3a;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.045) inset, 0 18px 40px rgba(0, 0, 0, 0.35);
-  --auth-glow: rgba(61, 156, 240, 0.16);
+  --background: #050d14;
+  --foreground: #f4f8fc;
+  --card: #0c1824;
+  --card-hover: #142536;
+  --input: #08131d;
+  --primary: #4db0ff;
+  --primary-hover: #3a9ef0;
+  --danger: #ff6b75;
+  --success: #12e87a;
+  --warning: #f5c34a;
+  --muted: #9aabbe;
+  --border: #243647;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.07) inset, 0 20px 48px rgba(0, 0, 0, 0.45);
+  --auth-glow: rgba(77, 176, 255, 0.28);
+  --success-glow: rgba(18, 232, 122, 0.22);
 }
 
 @theme inline {
@@ -50,9 +51,9 @@ html {
 
 body {
   background:
-    radial-gradient(1100px 520px at 8% -8%, var(--auth-glow), transparent 55%),
-    radial-gradient(800px 420px at 100% 0%, rgba(46, 207, 154, 0.07), transparent 42%),
-    linear-gradient(180deg, #0a1520 0%, var(--background) 42%, var(--background) 100%);
+    radial-gradient(1100px 560px at 6% -10%, var(--auth-glow), transparent 52%),
+    radial-gradient(820px 460px at 100% 0%, var(--success-glow), transparent 44%),
+    linear-gradient(180deg, #0b1a28 0%, var(--background) 40%, #040a10 100%);
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, sans-serif;
 }
@@ -64,10 +65,10 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: 0;
-  opacity: 0.35;
+  opacity: 0.42;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 80% 70% at 50% 20%, black 20%, transparent 75%);
 }
@@ -78,7 +79,7 @@ body > * {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--primary) 35%, transparent);
+  background: color-mix(in srgb, var(--primary) 45%, transparent);
 }
 
 :focus-visible {

@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/Modal";
+import LoadError from "@/components/ui/LoadError";
+import { useBlockPullRefresh, useRegisterPullRefresh } from "@/components/ui/PullToRefresh";
 import TimeInput from "@/components/ui/TimeInput";
 import PasswordInput from "@/components/ui/PasswordInput";
-import { LockIcon, MapPinIcon, CrosshairIcon, ClockIcon, CalendarIcon } from "@/components/ui/icons";
+import { LockIcon, MapPinIcon, CrosshairIcon, ClockIcon, CalendarIcon, TrashIcon } from "@/components/ui/icons";
 
 type TimeKey =
   | "checkinStart"
@@ -16,10 +19,6 @@ type TimeKey =
   | "halfDayCheckoutStart"
   | "halfDayCheckoutEnd";
 
-/**
- * Drives the form, validation, and payload together — four windows as eight
- * separate useState pairs was already repetitive at two.
- */
 const WINDOWS: { start: TimeKey; end: TimeKey; label: string; hint: string }[] = [
   { start: "checkinStart", end: "checkinEnd", label: "Check-in", hint: "Normal working day" },
   { start: "checkoutStart", end: "checkoutEnd", label: "Check-out", hint: "Normal working day" },
@@ -68,43 +67,117 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [windowErrors, setWindowErrors] = useState<Partial<Record<string, string>>>({});
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const snapshotRef = useRef("");
+  const windowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const { toast } = useToast();
 
   useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((data) => {
+    let cancelled = false;
+    setLoaded(false);
+    setLoadError("");
+
+    Promise.all([
+      fetch("/api/settings").then(async (r) => {
+        if (!r.ok) throw new Error("Failed to load settings");
+        return r.json();
+      }),
+      fetch("/api/global-defaults")
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ])
+      .then(([data, defaultsData]) => {
+        if (cancelled) return;
+        const nextTimes = Object.fromEntries(
+          TIME_KEYS.map((k) => [k, data[k] || ""])
+        ) as Record<TimeKey, string>;
         setHrmsEmail(data.hrmsEmail || "");
         setLatitude(data.latitude || "");
         setLongitude(data.longitude || "");
-        setTimes(
-          Object.fromEntries(TIME_KEYS.map((k) => [k, data[k] || ""])) as Record<TimeKey, string>
-        );
+        setTimes(nextTimes);
         setSkipSaturday(data.skipSaturday ?? true);
         setSkipSunday(data.skipSunday ?? true);
         setAutomationEnabled(data.automationEnabled || false);
         setHasPassword(data.hasPassword || false);
+        setHrmsPassword("");
+        if (defaultsData) setDefaults(defaultsData);
+        snapshotRef.current = JSON.stringify({
+          hrmsEmail: data.hrmsEmail || "",
+          latitude: data.latitude || "",
+          longitude: data.longitude || "",
+          times: nextTimes,
+          skipSaturday: data.skipSaturday ?? true,
+          skipSunday: data.skipSunday ?? true,
+          hrmsPassword: "",
+        });
+        setLoaded(true);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setLoadError(err.message || "Failed to load settings");
+        setLoaded(false);
       });
 
-    fetch("/api/global-defaults")
-      .then((r) => r.json())
-      .then((data) => setDefaults(data))
-      .catch(() => {});
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  const dirty = useMemo(() => {
+    if (!loaded) return false;
+    return (
+      JSON.stringify({
+        hrmsEmail,
+        latitude,
+        longitude,
+        times,
+        skipSaturday,
+        skipSunday,
+        hrmsPassword,
+      }) !== snapshotRef.current
+    );
+  }, [loaded, hrmsEmail, latitude, longitude, times, skipSaturday, skipSunday, hrmsPassword]);
+
+  useBlockPullRefresh(dirty);
+  useRegisterPullRefresh(() => {
+    if (dirty) return;
+    setReloadKey((k) => k + 1);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   function getDefaultTimes() {
     const now = new Date();
     const start = new Date(now.getTime() - 60000);
     const end = new Date(now.getTime() + 30 * 60000);
-    const fmt = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const fmt = (d: Date) =>
+      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     return { start: fmt(start), end: fmt(end) };
   }
 
   function setTime(key: TimeKey, value: string) {
     setTimes((prev) => ({ ...prev, [key]: value }));
+    setWindowErrors((prev) => {
+      const next = { ...prev };
+      for (const w of WINDOWS) {
+        if (w.start === key || w.end === key) delete next[w.label];
+      }
+      return next;
+    });
   }
 
-  /** Prefill a blank window with a sensible span so the picker isn't empty. */
   function handleStartFocus(startKey: TimeKey, endKey: TimeKey) {
     if (times[startKey]) return;
     const { start, end } = getDefaultTimes();
@@ -117,18 +190,24 @@ export default function SettingsPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!loaded) return;
 
+    const errors: Partial<Record<string, string>> = {};
     for (const window of WINDOWS) {
       const start = times[window.start];
       const end = times[window.end];
       if (start && end && start >= end) {
-        toast(`${window.label} start time must be before end time`, "error");
-        return;
+        errors[window.label] = "Start time must be before end time";
+      } else if (Boolean(start) !== Boolean(end)) {
+        errors[window.label] = "Set both times, or leave both blank";
       }
-      if (Boolean(start) !== Boolean(end)) {
-        toast(`${window.label}: set both times, or leave both blank`, "error");
-        return;
-      }
+    }
+    setWindowErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      const first = Object.keys(errors)[0];
+      windowRefs.current[first]?.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast(errors[first] || "Fix the highlighted windows", "error");
+      return;
     }
 
     setSaving(true);
@@ -154,6 +233,15 @@ export default function SettingsPage() {
         toast("Settings saved successfully!", "success");
         setHasPassword(true);
         setHrmsPassword("");
+        snapshotRef.current = JSON.stringify({
+          hrmsEmail,
+          latitude,
+          longitude,
+          times,
+          skipSaturday,
+          skipSunday,
+          hrmsPassword: "",
+        });
       } else {
         const data = await res.json();
         toast(data.error || "Failed to save settings", "error");
@@ -222,16 +310,30 @@ export default function SettingsPage() {
     );
   }
 
+  if (loadError && !loaded) {
+    return (
+      <div className="w-full max-w-xl 2xl:max-w-3xl mx-auto">
+        <LoadError message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />
+      </div>
+    );
+  }
+
+  if (!loaded) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-xl 2xl:max-w-3xl mx-auto space-y-5">
-        {/* Header */}
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Settings</h2>
           <p className="text-sm text-muted mt-0.5">Configure your HRMS credentials and scheduler preferences</p>
         </div>
 
         <form onSubmit={handleSave} className="space-y-5">
-          {/* Credentials */}
           <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <LockIcon size={16} />
@@ -264,7 +366,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Location */}
           <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -295,6 +396,7 @@ export default function SettingsPage() {
                 <label htmlFor="settings-latitude" className="block text-xs font-medium text-muted mb-1.5">Latitude</label>
                 <input id="settings-latitude"
                   type="text"
+                  inputMode="decimal"
                   value={latitude}
                   onChange={(e) => setLatitude(e.target.value)}
                   className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
@@ -306,6 +408,7 @@ export default function SettingsPage() {
                 <label htmlFor="settings-longitude" className="block text-xs font-medium text-muted mb-1.5">Longitude</label>
                 <input id="settings-longitude"
                   type="text"
+                  inputMode="decimal"
                   value={longitude}
                   onChange={(e) => setLongitude(e.target.value)}
                   className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
@@ -316,7 +419,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Schedule Intervals */}
           <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -326,7 +428,7 @@ export default function SettingsPage() {
               {TIME_KEYS.some((k) => times[k]) && (
                 <button
                   type="button"
-                  onClick={() => setTimes(EMPTY_TIMES)}
+                  onClick={() => setClearConfirm(true)}
                   className="px-2.5 py-1 text-xs font-medium text-danger border border-danger/30 rounded-lg hover:bg-danger/10 transition-colors"
                 >
                   Clear All
@@ -334,7 +436,6 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Auto Scheduler Toggle */}
             <div className="flex items-center justify-between p-3 bg-input rounded-xl">
               <div className="flex items-center gap-3">
                 <div className={`w-2.5 h-2.5 rounded-full ${automationEnabled ? "bg-success animate-pulse" : "bg-muted"}`} />
@@ -360,35 +461,48 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            {WINDOWS.map((window) => (
-              <div key={window.label}>
-                <label className="block text-xs font-medium text-muted">{window.label} Window</label>
-                <p className="text-[11px] text-muted/70 mb-2">
-                  {window.hint}
-                  {defaults ? ` · default ${formatTimeRange(defaults[window.start], defaults[window.end])}` : ""}
-                </p>
-                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
-                  <div>
-                    <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
-                    <TimeInput
-                      value={times[window.start]}
-                      onChange={(v) => setTime(window.start, v)}
-                      onFocus={() => handleStartFocus(window.start, window.end)}
-                      onClear={() => setTime(window.start, "")}
-                    />
+            {WINDOWS.map((window) => {
+              const err = windowErrors[window.label];
+              return (
+                <div
+                  key={window.label}
+                  ref={(el) => {
+                    windowRefs.current[window.label] = el;
+                  }}
+                >
+                  <label className="block text-xs font-medium text-muted">{window.label} Window</label>
+                  <p className="text-[11px] text-muted/70 mb-2">
+                    {window.hint}
+                    {defaults ? ` · default ${formatTimeRange(defaults[window.start], defaults[window.end])}` : ""}
+                  </p>
+                  <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                    <div>
+                      <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
+                      <TimeInput
+                        value={times[window.start]}
+                        onChange={(v) => setTime(window.start, v)}
+                        onFocus={() => handleStartFocus(window.start, window.end)}
+                        onClear={() => setTime(window.start, "")}
+                      />
+                    </div>
+                    <span className="text-muted text-xs mt-5">—</span>
+                    <div>
+                      <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
+                      <TimeInput
+                        value={times[window.end]}
+                        onChange={(v) => setTime(window.end, v)}
+                        onClear={() => setTime(window.end, "")}
+                      />
+                    </div>
                   </div>
-                  <span className="text-muted text-xs mt-5">—</span>
-                  <div>
-                    <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
-                    <TimeInput
-                      value={times[window.end]}
-                      onChange={(v) => setTime(window.end, v)}
-                      onClear={() => setTime(window.end, "")}
-                    />
-                  </div>
+                  {err && (
+                    <p className="mt-1.5 text-xs text-danger" role="alert">
+                      {err}
+                    </p>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             <p className="text-xs text-muted">
               The scheduler randomly picks a time within each window. Leave blank to use the
@@ -397,7 +511,6 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          {/* Weekend Toggles */}
           <div className="bg-card/80 border border-border rounded-2xl p-5 space-y-4 shadow-[var(--shadow)]">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <CalendarIcon size={16} />
@@ -444,7 +557,6 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          {/* Save Button */}
           <button
             type="submit"
             disabled={saving}
@@ -460,6 +572,21 @@ export default function SettingsPage() {
             )}
           </button>
         </form>
+
+        <ConfirmDialog
+          open={clearConfirm}
+          onCancel={() => setClearConfirm(false)}
+          onConfirm={() => {
+            setTimes(EMPTY_TIMES);
+            setWindowErrors({});
+            setClearConfirm(false);
+          }}
+          title="Clear all time windows?"
+          message="This clears your custom check-in and check-out windows. Defaults will be used until you set new times."
+          confirmLabel="Clear all"
+          tone="danger"
+          icon={<TrashIcon size={24} stroke="var(--danger)" />}
+        />
     </div>
   );
 }

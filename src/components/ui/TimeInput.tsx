@@ -211,7 +211,7 @@ export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInp
           open
             ? "border-primary ring-2 ring-primary/20 shadow-sm"
             : "border-border hover:border-primary/40"
-        } ${hasValue ? "text-foreground" : "text-muted"} ${onClear && hasValue ? "pr-9" : ""}`}
+        } ${hasValue ? "text-foreground" : "text-muted"} ${onClear && hasValue ? "pr-10" : ""}`}
       >
         <ClockIcon size={14} className="shrink-0 opacity-50" />
         <span className="font-mono tabular-nums tracking-wide">
@@ -227,7 +227,7 @@ export default function TimeInput({ value, onChange, onFocus, onClear }: TimeInp
             onClear();
             setOpen(false);
           }}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-muted hover:text-white hover:bg-danger/80 transition-colors text-xs z-10"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-muted hover:text-white hover:bg-danger/80 transition-colors text-xs z-10"
           aria-label="Clear"
         >
           &#x2715;

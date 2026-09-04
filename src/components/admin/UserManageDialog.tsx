@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import TimeInput from "@/components/ui/TimeInput";
 import DateInput from "@/components/ui/DateInput";
@@ -62,6 +62,21 @@ function timesFromUser(user: ManageableUser): Record<TimeKey, string> {
   return Object.fromEntries(TIME_KEYS.map((k) => [k, user[k] || ""])) as Record<TimeKey, string>;
 }
 
+function expandDateRange(start: string, end: string): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(start + "T00:00");
+  const last = new Date((end || start) + "T00:00");
+  if (last < cursor) return [start];
+  while (cursor <= last && dates.length < 60) {
+    const y = cursor.getFullYear();
+    const m = String(cursor.getMonth() + 1).padStart(2, "0");
+    const d = String(cursor.getDate()).padStart(2, "0");
+    dates.push(`${y}-${m}-${d}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
 export default function UserManageDialog({
   user,
   defaults,
@@ -78,20 +93,25 @@ export default function UserManageDialog({
   const [times, setTimes] = useState<Record<TimeKey, string>>(
     Object.fromEntries(TIME_KEYS.map((k) => [k, ""])) as Record<TimeKey, string>
   );
+  const [windowErrors, setWindowErrors] = useState<Partial<Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
   const [leaveDate, setLeaveDate] = useState("");
+  const [leaveEndDate, setLeaveEndDate] = useState("");
   const [leaveType, setLeaveType] = useState<LeaveType>("full");
   const [leaveReason, setLeaveReason] = useState("");
   const [windowStart, setWindowStart] = useState("");
   const [windowEnd, setWindowEnd] = useState("");
   const [addingLeave, setAddingLeave] = useState(false);
+  const windowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const todayISO = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
     if (!user) return;
     setTab("windows");
     setTimes(timesFromUser(user));
+    setWindowErrors({});
     setLeaveDate("");
+    setLeaveEndDate("");
     setLeaveType("full");
     setLeaveReason("");
     setWindowStart("");
@@ -100,22 +120,34 @@ export default function UserManageDialog({
 
   function updateTime(key: TimeKey, value: string) {
     setTimes((prev) => ({ ...prev, [key]: value }));
+    setWindowErrors((prev) => {
+      const next = { ...prev };
+      for (const w of WINDOWS) {
+        if (w.start === key || w.end === key) delete next[w.label];
+      }
+      return next;
+    });
   }
 
   async function saveWindows() {
     if (!user) return;
 
+    const errors: Partial<Record<string, string>> = {};
     for (const window of WINDOWS) {
       const start = times[window.start];
       const end = times[window.end];
       if (Boolean(start) !== Boolean(end)) {
-        toast(`Set both ${window.label} times, or leave both blank`, "error");
-        return;
+        errors[window.label] = "Set both times, or leave both blank";
+      } else if (start && end && start >= end) {
+        errors[window.label] = "Start must be before end";
       }
-      if (start && end && start >= end) {
-        toast(`${window.label} start must be before end`, "error");
-        return;
-      }
+    }
+    setWindowErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      const first = Object.keys(errors)[0];
+      windowRefs.current[first]?.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast(errors[first] || "Fix the highlighted windows", "error");
+      return;
     }
 
     setSaving(true);
@@ -142,7 +174,11 @@ export default function UserManageDialog({
   async function addLeave() {
     if (!user) return;
     if (!leaveDate) {
-      toast("Select a leave date", "error");
+      toast("Select a leave start date", "error");
+      return;
+    }
+    if (leaveEndDate && leaveEndDate < leaveDate) {
+      toast("End date must be on or after the start date", "error");
       return;
     }
     if (leaveType !== "full" && Boolean(windowStart) !== Boolean(windowEnd)) {
@@ -154,6 +190,8 @@ export default function UserManageDialog({
       return;
     }
 
+    const dates = expandDateRange(leaveDate, leaveEndDate || leaveDate);
+
     setAddingLeave(true);
     try {
       const res = await fetch("/api/admin/leaves", {
@@ -161,7 +199,7 @@ export default function UserManageDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user.id,
-          dates: [leaveDate],
+          dates,
           type: leaveType,
           reason: leaveReason || undefined,
           windowStart: leaveType === "full" ? "" : windowStart,
@@ -174,8 +212,9 @@ export default function UserManageDialog({
         setAddingLeave(false);
         return;
       }
-      toast("Leave added", "success");
+      toast(dates.length > 1 ? `Leave added for ${dates.length} days` : "Leave added", "success");
       setLeaveDate("");
+      setLeaveEndDate("");
       setLeaveType("full");
       setLeaveReason("");
       setWindowStart("");
@@ -205,7 +244,7 @@ export default function UserManageDialog({
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
+                className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                   tab === item.id
                     ? "bg-card text-primary shadow-sm ring-1 ring-border"
                     : "text-muted hover:text-foreground"
@@ -225,31 +264,44 @@ export default function UserManageDialog({
                   : ""}
                 .
               </p>
-              {WINDOWS.map((window) => (
-                <div key={window.label}>
-                  <label className="block text-xs font-medium text-muted">{window.label}</label>
-                  <p className="text-[11px] text-muted/70 mb-2">{window.hint}</p>
-                  <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
-                    <div>
-                      <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
-                      <TimeInput
-                        value={times[window.start]}
-                        onChange={(v) => updateTime(window.start, v)}
-                        onClear={() => updateTime(window.start, "")}
-                      />
+              {WINDOWS.map((window) => {
+                const err = windowErrors[window.label];
+                return (
+                  <div
+                    key={window.label}
+                    ref={(el) => {
+                      windowRefs.current[window.label] = el;
+                    }}
+                  >
+                    <label className="block text-xs font-medium text-muted">{window.label}</label>
+                    <p className="text-[11px] text-muted/70 mb-2">{window.hint}</p>
+                    <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                      <div>
+                        <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">From</span>
+                        <TimeInput
+                          value={times[window.start]}
+                          onChange={(v) => updateTime(window.start, v)}
+                          onClear={() => updateTime(window.start, "")}
+                        />
+                      </div>
+                      <span className="text-muted text-xs mt-5">—</span>
+                      <div>
+                        <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
+                        <TimeInput
+                          value={times[window.end]}
+                          onChange={(v) => updateTime(window.end, v)}
+                          onClear={() => updateTime(window.end, "")}
+                        />
+                      </div>
                     </div>
-                    <span className="text-muted text-xs mt-5">—</span>
-                    <div>
-                      <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">To</span>
-                      <TimeInput
-                        value={times[window.end]}
-                        onChange={(v) => updateTime(window.end, v)}
-                        onClear={() => updateTime(window.end, "")}
-                      />
-                    </div>
+                    {err && (
+                      <p className="mt-1.5 text-xs text-danger" role="alert">
+                        {err}
+                      </p>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <div className="flex gap-3 pt-1">
                 <button
                   type="button"
@@ -272,15 +324,34 @@ export default function UserManageDialog({
 
           {tab === "leave" && (
             <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1.5">Date</label>
-                <DateInput value={leaveDate} onChange={setLeaveDate} min={todayISO} />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1.5">From</label>
+                  <DateInput
+                    value={leaveDate}
+                    onChange={(v) => {
+                      setLeaveDate(v);
+                      if (leaveEndDate && leaveEndDate < v) setLeaveEndDate("");
+                    }}
+                    min={todayISO}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1.5">
+                    To <span className="font-normal">(optional)</span>
+                  </label>
+                  <DateInput
+                    value={leaveEndDate}
+                    onChange={setLeaveEndDate}
+                    min={leaveDate || todayISO}
+                  />
+                </div>
               </div>
               <div className="grid gap-2">
                 {TYPE_OPTIONS.map((option) => (
                   <label
                     key={option.value}
-                    className={`flex items-start gap-2.5 rounded-xl border px-3 py-2 cursor-pointer ${
+                    className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer ${
                       leaveType === option.value ? "border-primary bg-primary/8" : "border-border"
                     }`}
                   >
@@ -289,7 +360,13 @@ export default function UserManageDialog({
                       name="admin-leave-type"
                       className="mt-0.5"
                       checked={leaveType === option.value}
-                      onChange={() => setLeaveType(option.value)}
+                      onChange={() => {
+                        setLeaveType(option.value);
+                        if (option.value === "full") {
+                          setWindowStart("");
+                          setWindowEnd("");
+                        }
+                      }}
                     />
                     <span>
                       <span className="block text-sm">{option.label}</span>
@@ -337,7 +414,11 @@ export default function UserManageDialog({
                   disabled={addingLeave}
                   className="flex-1 py-2.5 text-white rounded-xl font-medium text-sm bg-primary hover:bg-primary-hover disabled:opacity-50 transition-all"
                 >
-                  {addingLeave ? "Adding..." : "Add leave"}
+                  {addingLeave
+                    ? "Adding..."
+                    : leaveEndDate && leaveEndDate !== leaveDate
+                      ? "Add leave range"
+                      : "Add leave"}
                 </button>
               </div>
             </div>

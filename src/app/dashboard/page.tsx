@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/Modal";
+import LoadError from "@/components/ui/LoadError";
+import { useRegisterPullRefresh } from "@/components/ui/PullToRefresh";
 import { Table, THead, Th, TBody, Tr, Td, TableCard, TableEmpty } from "@/components/ui/Table";
 import { AttendanceBadge, AttendanceIcon, CheckInIcon, CheckOutIcon, InfoIcon, ClockIcon } from "@/components/ui/icons";
 
@@ -18,6 +21,7 @@ interface LogEntry {
   status: string;
   executedAt: string;
   skipReason?: string;
+  errorMessage?: string;
 }
 
 interface ActionPlan {
@@ -83,7 +87,6 @@ function planStatus(plan: ActionPlan | null, paused: boolean) {
     return { label: "Scheduled", detail: `at ${formatHourString(plan.targetTime)}`, style: "bg-primary/10 text-primary" };
   }
   if (plan.window) {
-    // Before the day's row exists the exact minute hasn't been drawn yet.
     return {
       label: "Pending",
       detail: `between ${formatTimeRange(plan.window.start, plan.window.end)}`,
@@ -96,12 +99,14 @@ function planStatus(plan: ActionPlan | null, paused: boolean) {
 export default function DashboardPage() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [today, setToday] = useState<Today | null>(null);
   const [recentLogs, setRecentLogs] = useState<LogEntry[]>([]);
   const [toggling, setToggling] = useState(false);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"IN" | "OUT" | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const { toast } = useToast();
 
   const fetchLogs = useCallback(() => {
@@ -121,18 +126,51 @@ export default function DashboardPage() {
       .catch(() => setToday(null));
   }, []);
 
-  useEffect(() => {
-    fetch("/api/settings")
+  const refreshAll = useCallback(() => {
+    setLoadError("");
+    setSettings(null);
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  useRegisterPullRefresh(() => {
+    fetchLogs();
+    fetchToday();
+    return fetch("/api/settings")
       .then((r) => {
         if (!r.ok) throw new Error("Failed to load settings");
         return r.json();
       })
       .then(setSettings)
-      .catch((err) => toast(err.message, "error"));
+      .catch(() => {
+        /* keep existing settings on soft refresh failure */
+      });
+  }, [fetchLogs, fetchToday]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadError("");
+    fetch("/api/settings")
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load settings");
+        return r.json();
+      })
+      .then((data) => {
+        if (!cancelled) setSettings(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSettings(null);
+          setLoadError(err.message || "Failed to load settings");
+          toast(err.message || "Failed to load settings", "error");
+        }
+      });
 
     fetchLogs();
     fetchToday();
-  }, [fetchLogs, fetchToday, toast]);
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchLogs, fetchToday, toast, reloadKey]);
 
   async function toggleAutomation() {
     if (!settings) return;
@@ -146,7 +184,6 @@ export default function DashboardPage() {
       if (res.ok) {
         const next = !settings.automationEnabled;
         setSettings({ ...settings, automationEnabled: next });
-        // Today's card reads the toggle, so it has to refresh with it.
         fetchToday();
         toast(next ? "Automation enabled" : "Automation disabled", "success");
       }
@@ -183,6 +220,14 @@ export default function DashboardPage() {
     setLoading(false);
   }
 
+  if (loadError && !settings) {
+    return (
+      <div className="w-full max-w-2xl 2xl:max-w-4xl mx-auto">
+        <LoadError message={loadError} onRetry={refreshAll} />
+      </div>
+    );
+  }
+
   if (!settings) {
     return (
       <div className="flex justify-center py-16">
@@ -204,15 +249,33 @@ export default function DashboardPage() {
           <p className="text-sm text-muted mt-0.5">Today&apos;s schedule and a shortcut if you need to punch in by hand.</p>
         </div>
 
-        {/* Automation Toggle Card */}
+        {!settings.hasPassword && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3.5">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-warning">Add your HRMS credentials</p>
+              <p className="text-xs text-muted mt-0.5">
+                Automation and manual check-in stay off until your email and password are saved.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/settings"
+              className="shrink-0 inline-flex items-center justify-center rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-white hover:bg-primary-hover transition-colors"
+            >
+              Go to Settings
+            </Link>
+          </div>
+        )}
+
         <div className="rounded-2xl p-5 bg-card/80 border border-border shadow-[var(--shadow)]">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${settings.automationEnabled ? "bg-success animate-pulse" : "bg-muted"}`} />
               <div className="min-w-0">
                 <h3 className="font-semibold text-sm">Auto Scheduler</h3>
-                <p className="text-xs text-muted mt-0.5 truncate">
-                  {settings.hrmsEmail || "No HRMS email configured"}
+                <p className="text-xs text-muted mt-0.5 truncate" id="automation-hint">
+                  {!settings.hasPassword
+                    ? "Credentials required — open Settings to continue"
+                    : settings.hrmsEmail || "No HRMS email configured"}
                 </p>
               </div>
             </div>
@@ -221,6 +284,7 @@ export default function DashboardPage() {
               disabled={toggling || !settings.hasPassword}
               aria-pressed={settings.automationEnabled}
               aria-label={settings.automationEnabled ? "Disable automation" : "Enable automation"}
+              aria-describedby="automation-hint"
               className="relative w-12 h-7 rounded-full transition-colors disabled:opacity-50 shrink-0"
               style={{ backgroundColor: settings.automationEnabled ? "var(--success)" : "var(--border)" }}
             >
@@ -233,7 +297,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Today's plan — the randomly-picked time used to be invisible */}
         {today && (
           <div className="rounded-2xl p-5 bg-card/80 border border-border shadow-[var(--shadow)]">
             <div className="flex items-center justify-between mb-4">
@@ -285,8 +348,6 @@ export default function DashboardPage() {
                       const status = planStatus(plan, Boolean(pausedReason));
                       return (
                         <div key={key} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-input/60">
-                          {/* Muted when nothing will run — the row shouldn't
-                              look active on a day the scheduler sits out. */}
                           <AttendanceBadge action={key} muted={!plan?.window} />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-xs">{label}</p>
@@ -309,19 +370,20 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Manual Check-in/Check-out */}
         <div className="rounded-2xl p-5 space-y-4 bg-card/80 border border-border shadow-[var(--shadow)]">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <h3 className="font-semibold text-sm">Manual Action</h3>
             {!settings.hasPassword && (
-              <span className="text-xs text-danger">Credentials required</span>
+              <Link href="/dashboard/settings" className="text-xs text-primary font-medium hover:underline">
+                Add credentials
+              </Link>
             )}
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => setConfirmAction("IN")}
               disabled={checkinLoading || !settings.hasPassword}
-              className="flex-1 py-3 bg-success/10 text-success border border-success/20 rounded-xl font-semibold text-sm hover:bg-success hover:text-white hover:border-success/40 hover:shadow-[0_4px_16px_rgba(34,197,94,0.3)] disabled:opacity-40 disabled:hover:bg-success/10 disabled:hover:text-success disabled:hover:shadow-none transition-all"
+              className="flex-1 py-3 bg-success/10 text-success border border-success/25 rounded-xl font-semibold text-sm hover:bg-success hover:text-[#04140f] hover:border-success/50 hover:shadow-[0_4px_18px_rgba(18,232,122,0.35)] disabled:opacity-40 disabled:hover:bg-success/10 disabled:hover:text-success disabled:hover:shadow-none transition-all"
             >
               {checkinLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -355,7 +417,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Activity */}
         <TableCard
           title="Recent Activity"
           actions={
@@ -375,10 +436,15 @@ export default function DashboardPage() {
             </THead>
             <TBody>
               {recentLogs.length === 0 ? (
-                <TableEmpty colSpan={3} message="No activity yet" />
+                <TableEmpty
+                  colSpan={3}
+                  message="No activity yet"
+                  icon={<ClockIcon size={20} stroke="var(--muted)" />}
+                />
               ) : (
                 recentLogs.map((log, i) => {
                   const at = new Date(log.executedAt);
+                  const detail = log.skipReason || log.errorMessage || "";
                   return (
                     <Tr key={i}>
                       <Td>
@@ -406,7 +472,6 @@ export default function DashboardPage() {
                                 ? "bg-danger/10 text-danger"
                                 : "bg-warning/10 text-warning"
                           }`}
-                          title={log.skipReason || ""}
                         >
                           {log.status === "SUCCESS"
                             ? "Done"
@@ -414,6 +479,11 @@ export default function DashboardPage() {
                               ? "Failed"
                               : "Skipped"}
                         </span>
+                        {detail && log.status !== "SUCCESS" && (
+                          <span className="block text-[11px] text-muted mt-1 max-w-[180px] leading-snug">
+                            {detail}
+                          </span>
+                        )}
                       </Td>
                     </Tr>
                   );

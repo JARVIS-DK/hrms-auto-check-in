@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useToast } from "@/components/ui/Toast";
 import DateInput from "@/components/ui/DateInput";
 import TimeInput from "@/components/ui/TimeInput";
 import Modal, { ConfirmDialog } from "@/components/ui/Modal";
+import { useRegisterPullRefresh } from "@/components/ui/PullToRefresh";
+import LoadError from "@/components/ui/LoadError";
 import {
   Table,
   THead,
@@ -32,6 +34,7 @@ import {
   CopyIcon,
   EditIcon,
   StopIcon,
+  LockIcon,
 } from "@/components/ui/icons";
 import UserManageDialog from "@/components/admin/UserManageDialog";
 
@@ -236,6 +239,8 @@ interface ScheduledAction {
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("users");
   const [loading, setLoading] = useState(true);
+  const [tabError, setTabError] = useState("");
+  const tabBarRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const todayISO = new Date().toISOString().split("T")[0];
@@ -244,6 +249,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [automationFilter, setAutomationFilter] = useState<"all" | "enabled" | "disabled">("all");
+  const [credentialFilter, setCredentialFilter] = useState<"all" | "missing">("all");
   const [globalDefaults, setGlobalDefaults] = useState<GlobalDefaults | null>(null);
   const [editingDefaults, setEditingDefaults] = useState(false);
   // One draft object rather than a useState per field — four windows means
@@ -252,6 +258,7 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [managingUser, setManagingUser] = useState<User | null>(null);
   const [automationConfirm, setAutomationConfirm] = useState<{ user: User; next: boolean } | null>(null);
+  const [revokeConfirm, setRevokeConfirm] = useState<Invite | null>(null);
   const [togglingUserId, setTogglingUserId] = useState<number | null>(null);
 
   // Holidays state
@@ -304,20 +311,28 @@ export default function AdminPage() {
   }, []);
 
   // Fetch users
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (opts?: { silent?: boolean }) => {
     try {
       const res = await fetch("/api/admin/users");
       if (!res.ok) {
         const data = await res.json();
-        toast(data.error || "Failed to load users", "error");
+        const msg = data.error || "Failed to load users";
+        if (!opts?.silent) {
+          setTabError(msg);
+          toast(msg, "error");
+        }
         return;
       }
       const data = await res.json();
       setUsers(data.users || []);
+      if (!opts?.silent) setTabError("");
     } catch {
-      toast("Failed to load users", "error");
+      if (!opts?.silent) {
+        setTabError("Failed to load users");
+        toast("Failed to load users", "error");
+      }
     }
-    setLoading(false);
+    if (!opts?.silent) setLoading(false);
   }, [toast]);
 
   // Fetch logs
@@ -332,13 +347,17 @@ export default function AdminPage() {
       const res = await fetch(`/api/admin/logs?${params.toString()}`);
       if (!res.ok) {
         const data = await res.json();
-        toast(data.error || "Failed to load logs", "error");
+        const msg = data.error || "Failed to load logs";
+        setTabError(msg);
+        toast(msg, "error");
         return;
       }
       const data = await res.json();
       setLogs(data.logs || []);
       setLogsTotalPages(data.totalPages || 1);
+      setTabError("");
     } catch {
+      setTabError("Failed to load logs");
       toast("Failed to load logs", "error");
     }
     setLoading(false);
@@ -355,12 +374,16 @@ export default function AdminPage() {
       const res = await fetch(`/api/admin/leaves?${params.toString()}`);
       if (!res.ok) {
         const data = await res.json();
-        toast(data.error || "Failed to load leaves", "error");
+        const msg = data.error || "Failed to load leaves";
+        setTabError(msg);
+        toast(msg, "error");
         return;
       }
       const data = await res.json();
       setLeaves(data.leaves || []);
+      setTabError("");
     } catch {
+      setTabError("Failed to load leaves");
       toast("Failed to load leaves", "error");
     }
     setLoading(false);
@@ -372,11 +395,15 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/holidays");
       const data = await res.json();
       if (!res.ok) {
-        toast(data.error || "Failed to load holidays", "error");
+        const msg = data.error || "Failed to load holidays";
+        setTabError(msg);
+        toast(msg, "error");
         return;
       }
       setHolidays(data.holidays || []);
+      setTabError("");
     } catch {
+      setTabError("Failed to load holidays");
       toast("Failed to load holidays", "error");
     }
     setLoading(false);
@@ -388,11 +415,15 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/invites");
       const data = await res.json();
       if (!res.ok) {
-        toast(data.error || "Failed to load invites", "error");
+        const msg = data.error || "Failed to load invites";
+        setTabError(msg);
+        toast(msg, "error");
         return;
       }
       setInvites(data.invites || []);
+      setTabError("");
     } catch {
+      setTabError("Failed to load invites");
       toast("Failed to load invites", "error");
     }
     setLoading(false);
@@ -409,13 +440,17 @@ export default function AdminPage() {
       const res = await fetch(`/api/admin/scheduled-actions?${params.toString()}`);
       if (!res.ok) {
         const data = await res.json();
-        toast(data.error || "Failed to load scheduled actions", "error");
+        const msg = data.error || "Failed to load scheduled actions";
+        setTabError(msg);
+        toast(msg, "error");
         return;
       }
       const data = await res.json();
       setScheduledActions(data.scheduledActions || []);
       setScheduledTotalPages(data.totalPages || 1);
+      setTabError("");
     } catch {
+      setTabError("Failed to load scheduled actions");
       toast("Failed to load scheduled actions", "error");
     }
     setLoading(false);
@@ -429,11 +464,22 @@ export default function AdminPage() {
       if (search && !u.name.toLowerCase().includes(search) && !u.email.toLowerCase().includes(search)) {
         return false;
       }
+      if (credentialFilter === "missing" && u.hasPassword) return false;
       if (automationFilter === "enabled") return u.automationEnabled;
       if (automationFilter === "disabled") return !u.automationEnabled;
       return true;
     });
-  }, [users, userSearch, automationFilter]);
+  }, [users, userSearch, automationFilter, credentialFilter]);
+
+  const userStats = useMemo(() => {
+    const automationOn = users.filter((u) => u.automationEnabled).length;
+    const missingPassword = users.filter((u) => !u.hasPassword).length;
+    return {
+      total: users.length,
+      automationOn,
+      missingPassword,
+    };
+  }, [users]);
 
   /**
    * The one place that knows how to load a tab.
@@ -472,6 +518,11 @@ export default function AdminPage() {
     ]
   );
 
+  // Keep the user filter dropdowns populated even if you never open Users.
+  useEffect(() => {
+    fetchUsers({ silent: true });
+  }, [fetchUsers]);
+
   // The loaders only setState after awaiting the network, so there is no
   // cascading render. The synchronous `loading` flip lives in
   // switchTab/refreshCurrentTab, not here.
@@ -479,16 +530,37 @@ export default function AdminPage() {
     loadTab(activeTab);
   }, [activeTab, loadTab]);
 
+  useEffect(() => {
+    const root = tabBarRef.current;
+    if (!root) return;
+    const active = root.querySelector<HTMLElement>("[data-active='true']");
+    active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [activeTab]);
+
   function switchTab(tab: Tab) {
     if (tab === activeTab) return;
+    setTabError("");
     setLoading(true);
     setActiveTab(tab);
   }
 
   function refreshCurrentTab() {
+    setTabError("");
     setLoading(true);
     loadTab(activeTab);
   }
+
+  function openUserLogs(userId: number) {
+    setLogsUserId(String(userId));
+    setLogsPage(1);
+    setTabError("");
+    setLoading(true);
+    setActiveTab("logs");
+  }
+
+  useRegisterPullRefresh(() => {
+    refreshCurrentTab();
+  }, [activeTab, loadTab]);
 
   /** Expand an optional end date into the inclusive list of dates it covers. */
   function expandDateRange(start: string, end: string): string[] {
@@ -736,7 +808,10 @@ export default function AdminPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-1 p-1 bg-input/80 border border-border rounded-2xl overflow-x-auto overscroll-x-contain">
+        <div
+          ref={tabBarRef}
+          className="flex gap-1 p-1 bg-input/80 border border-border rounded-2xl overflow-x-auto overscroll-x-contain scrollbar-thin"
+        >
           {([
             { id: "users", label: "Users", icon: <UsersIcon size={16} /> },
             { id: "logs", label: "Logs", icon: <ActivityIcon size={16} /> },
@@ -747,8 +822,9 @@ export default function AdminPage() {
           ] as const).map((tab) => (
             <button
               key={tab.id}
+              data-active={activeTab === tab.id || undefined}
               onClick={() => switchTab(tab.id)}
-              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2 text-xs sm:text-sm font-medium rounded-xl whitespace-nowrap shrink-0 transition-colors ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2.5 text-xs sm:text-sm font-medium rounded-xl whitespace-nowrap shrink-0 transition-colors ${
                 activeTab === tab.id
                   ? "bg-card text-primary shadow-sm ring-1 ring-border"
                   : "text-muted hover:text-foreground"
@@ -760,9 +836,41 @@ export default function AdminPage() {
           ))}
         </div>
 
+        {tabError && !loading && (
+          <LoadError message={tabError} onRetry={refreshCurrentTab} />
+        )}
+
         {/* Tab Content */}
-        {activeTab === "users" && (
+        {!tabError && activeTab === "users" && (
           <div className="space-y-4">
+            {/* Snapshot counts */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="rounded-2xl border border-border bg-card/80 px-3 py-3 sm:px-4 shadow-[var(--shadow)]">
+                <p className="text-[11px] uppercase tracking-wider text-muted">Users</p>
+                <p className="text-xl font-semibold tabular-nums mt-0.5">{userStats.total}</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-card/80 px-3 py-3 sm:px-4 shadow-[var(--shadow)]">
+                <p className="text-[11px] uppercase tracking-wider text-muted">Scheduler on</p>
+                <p className="text-xl font-semibold tabular-nums mt-0.5 text-success">{userStats.automationOn}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setCredentialFilter((prev) => (prev === "missing" ? "all" : "missing"))
+                }
+                className={`rounded-2xl border px-3 py-3 sm:px-4 shadow-[var(--shadow)] text-left transition-colors ${
+                  credentialFilter === "missing"
+                    ? "border-warning/50 bg-warning/10"
+                    : "border-border bg-card/80 hover:border-warning/40"
+                }`}
+              >
+                <p className="text-[11px] uppercase tracking-wider text-muted">No password</p>
+                <p className={`text-xl font-semibold tabular-nums mt-0.5 ${userStats.missingPassword ? "text-warning" : ""}`}>
+                  {userStats.missingPassword}
+                </p>
+              </button>
+            </div>
+
             {/* Global Defaults Card */}
             {globalDefaults && (
               <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
@@ -833,7 +941,23 @@ export default function AdminPage() {
                   <span className="sr-only">Loading</span>
                 </div>
               ) : filteredUsers.length === 0 ? (
-                <p className="px-5 py-10 text-center text-sm text-muted">No users found</p>
+                <div className="px-5 py-10 text-center">
+                  <UsersIcon size={20} stroke="var(--muted)" className="mx-auto mb-2 opacity-70" />
+                  <p className="text-sm text-muted">No users match these filters</p>
+                  {(userSearch || automationFilter !== "all" || credentialFilter !== "all") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserSearch("");
+                        setAutomationFilter("all");
+                        setCredentialFilter("all");
+                      }}
+                      className="mt-3 text-xs font-medium text-primary hover:underline"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
               ) : (
                 <>
                   <ul className="md:hidden divide-y divide-border">
@@ -846,6 +970,12 @@ export default function AdminPage() {
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium truncate">{user.name}</p>
                             <p className="text-xs text-muted truncate">{user.email}</p>
+                            {!user.hasPassword && (
+                              <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-warning">
+                                <LockIcon size={11} />
+                                No HRMS password
+                              </span>
+                            )}
                           </div>
                           <span className={`shrink-0 inline-block text-[11px] font-medium px-2 py-0.5 rounded-full capitalize ${
                             user.role === "admin" ? "bg-primary/15 text-primary" : "bg-white/8 text-foreground/80"
@@ -863,6 +993,13 @@ export default function AdminPage() {
                               name={user.name}
                               onClick={() => requestAutomationToggle(user)}
                             />
+                            <button
+                              type="button"
+                              onClick={() => openUserLogs(user.id)}
+                              className="text-xs font-medium text-muted hover:text-foreground"
+                            >
+                              Logs
+                            </button>
                             <button
                               type="button"
                               onClick={() => setManagingUser(user)}
@@ -893,6 +1030,12 @@ export default function AdminPage() {
                             <Td>
                               <span className="block font-medium">{user.name}</span>
                               <span className="block text-xs text-muted">{user.email}</span>
+                              {!user.hasPassword && (
+                                <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-warning">
+                                  <LockIcon size={11} />
+                                  No HRMS password
+                                </span>
+                              )}
                             </Td>
                             <Td>
                               <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
@@ -926,13 +1069,22 @@ export default function AdminPage() {
                                 : "Never"}
                             </Td>
                             <Td>
-                              <button
-                                type="button"
-                                onClick={() => setManagingUser(user)}
-                                className="text-sm font-medium text-primary hover:underline"
-                              >
-                                Manage
-                              </button>
+                              <span className="inline-flex items-center gap-3 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => openUserLogs(user.id)}
+                                  className="text-xs font-medium text-muted hover:text-foreground"
+                                >
+                                  Logs
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setManagingUser(user)}
+                                  className="text-sm font-medium text-primary hover:underline"
+                                >
+                                  Manage
+                                </button>
+                              </span>
                             </Td>
                           </Tr>
                         ))}
@@ -1047,8 +1199,30 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === "logs" && (
+        {!tabError && activeTab === "logs" && (
           <div className="space-y-4">
+            {logsUserId && (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/10 px-3.5 py-2.5">
+                <p className="text-xs text-primary min-w-0 truncate">
+                  Showing logs for{" "}
+                  <span className="font-semibold">
+                    {users.find((u) => String(u.id) === logsUserId)?.name || "selected user"}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLogsUserId("");
+                    setLogsPage(1);
+                    setLoading(true);
+                    setTabError("");
+                  }}
+                  className="shrink-0 text-xs font-medium text-primary hover:underline"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
             {/* Filters */}
             <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
@@ -1087,10 +1261,12 @@ export default function AdminPage() {
                 </div>
                 <button
                   onClick={() => {
+                    setLoading(true);
+                    setTabError("");
                     setLogsPage(1);
                     fetchLogs(1);
                   }}
-                  className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover transition-colors"
+                  className="px-4 py-2.5 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover transition-colors"
                 >
                   Apply
                 </button>
@@ -1102,6 +1278,8 @@ export default function AdminPage() {
                       setLogsAction("");
                       setLogsStatus("");
                       setLogsPage(1);
+                      setLoading(true);
+                      setTabError("");
                     }}
                     className="px-3 py-2 text-xs font-medium text-danger border border-danger/30 rounded-xl hover:bg-danger/10 transition-colors"
                   >
@@ -1125,7 +1303,11 @@ export default function AdminPage() {
                   {loading ? (
                     <TableLoading colSpan={5} />
                   ) : logs.length === 0 ? (
-                    <TableEmpty colSpan={5} message="No logs found" />
+                    <TableEmpty
+                      colSpan={5}
+                      message="No logs found"
+                      icon={<ActivityIcon size={20} stroke="var(--muted)" />}
+                    />
                   ) : (
                     logs.map((log) => {
                       const at = new Date(log.executedAt);
@@ -1163,6 +1345,11 @@ export default function AdminPage() {
                             }`}>
                               {log.status === "SUCCESS" ? "Done" : log.status === "FAILED" ? "Failed" : "Skipped"}
                             </span>
+                            {(log.skipReason || log.errorMessage) && (
+                              <span className="mt-1 block text-[11px] text-muted leading-snug max-w-[200px] lg:hidden">
+                                {log.skipReason || log.errorMessage}
+                              </span>
+                            )}
                           </Td>
                           <Td className="hidden lg:table-cell text-xs text-muted">
                             <span className="block max-w-[220px] truncate" title={log.skipReason || log.errorMessage || ""}>
@@ -1210,7 +1397,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === "leaves" && (
+        {!tabError && activeTab === "leaves" && (
           <div className="space-y-4">
             {/* Filters */}
             <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
@@ -1228,8 +1415,12 @@ export default function AdminPage() {
                   <DateInput value={leavesEndDate} onChange={setLeavesEndDate} />
                 </div>
                 <button
-                  onClick={fetchLeaves}
-                  className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover transition-colors"
+                  onClick={() => {
+                    setLoading(true);
+                    setTabError("");
+                    fetchLeaves();
+                  }}
+                  className="px-4 py-2.5 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover transition-colors"
                 >
                   Apply
                 </button>
@@ -1239,6 +1430,8 @@ export default function AdminPage() {
                       setLeavesUserId("");
                       setLeavesStartDate("");
                       setLeavesEndDate("");
+                      setLoading(true);
+                      setTabError("");
                     }}
                     className="px-3 py-2 text-xs font-medium text-danger border border-danger/30 rounded-xl hover:bg-danger/10 transition-colors"
                   >
@@ -1262,7 +1455,11 @@ export default function AdminPage() {
                   {loading ? (
                     <TableLoading colSpan={5} />
                   ) : leaves.length === 0 ? (
-                    <TableEmpty colSpan={5} message="No leaves found" />
+                    <TableEmpty
+                      colSpan={5}
+                      message="No leaves found"
+                      icon={<CalendarIcon size={20} stroke="var(--muted)" />}
+                    />
                   ) : (
                     leaves.map((leave) => (
                       <Tr key={leave.id} muted={leave.date < todayISO}>
@@ -1307,7 +1504,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === "scheduled" && (
+        {!tabError && activeTab === "scheduled" && (
           <div className="space-y-4">
             {/* Filters */}
             <div className="bg-card/80 border border-border rounded-2xl p-4 shadow-[var(--shadow)]">
@@ -1342,8 +1539,13 @@ export default function AdminPage() {
                   </select>
                 </div>
                 <button
-                  onClick={() => { setScheduledPage(1); fetchScheduled(1); }}
-                  className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover transition-colors"
+                  onClick={() => {
+                    setLoading(true);
+                    setTabError("");
+                    setScheduledPage(1);
+                    fetchScheduled(1);
+                  }}
+                  className="px-4 py-2.5 text-sm bg-primary text-white rounded-xl font-medium hover:bg-primary-hover transition-colors"
                 >
                   Apply
                 </button>
@@ -1354,6 +1556,8 @@ export default function AdminPage() {
                       setScheduledAction("");
                       setScheduledStatus("");
                       setScheduledPage(1);
+                      setLoading(true);
+                      setTabError("");
                     }}
                     className="px-3 py-2 text-xs font-medium text-danger border border-danger/30 rounded-xl hover:bg-danger/10 transition-colors"
                   >
@@ -1377,7 +1581,11 @@ export default function AdminPage() {
                   {loading ? (
                     <TableLoading colSpan={5} />
                   ) : scheduledActions.length === 0 ? (
-                    <TableEmpty colSpan={5} message="No scheduled actions found" />
+                    <TableEmpty
+                      colSpan={5}
+                      message="No scheduled actions found"
+                      icon={<ClockIcon size={20} stroke="var(--muted)" />}
+                    />
                   ) : (
                     scheduledActions.map((action, idx) => {
                       const isAttendance = action.action === "checkin" || action.action === "checkout";
@@ -1467,7 +1675,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === "holidays" && (
+        {!tabError && activeTab === "holidays" && (
           <div className="space-y-4">
             {/* Add holiday */}
             <div className="bg-card/80 border border-border rounded-2xl p-5 shadow-[var(--shadow)]">
@@ -1528,7 +1736,11 @@ export default function AdminPage() {
                   {loading ? (
                     <TableLoading colSpan={4} />
                   ) : holidays.length === 0 ? (
-                    <TableEmpty colSpan={4} message="No holidays configured" />
+                    <TableEmpty
+                      colSpan={4}
+                      message="No holidays configured"
+                      icon={<HolidayIcon size={20} stroke="var(--muted)" />}
+                    />
                   ) : (
                     holidays.map((holiday) => {
                       const isPast = holiday.date < todayISO;
@@ -1555,7 +1767,7 @@ export default function AdminPage() {
                           <Td className="text-right">
                             <button
                               onClick={() => setHolidayDeleteConfirm(holiday)}
-                              className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                              className="w-10 h-10 inline-flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-colors"
                               aria-label={`Remove ${holiday.name}`}
                             >
                               <TrashIcon size={14} />
@@ -1598,7 +1810,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === "invites" && (
+        {!tabError && activeTab === "invites" && (
           <div className="space-y-4">
             {/* Create invite */}
             <div className="bg-card/80 border border-border rounded-2xl p-5 shadow-[var(--shadow)]">
@@ -1661,7 +1873,11 @@ export default function AdminPage() {
                   {loading ? (
                     <TableLoading colSpan={5} />
                   ) : invites.length === 0 ? (
-                    <TableEmpty colSpan={5} message="No invites yet" />
+                    <TableEmpty
+                      colSpan={5}
+                      message="No invites yet"
+                      icon={<MailIcon size={20} stroke="var(--muted)" />}
+                    />
                   ) : (
                     invites.map((invite) => (
                       <Tr key={invite.token} muted={invite.status !== "pending"}>
@@ -1690,7 +1906,7 @@ export default function AdminPage() {
                                 Copy link
                               </button>
                               <button
-                                onClick={() => revokeInvite(invite.token)}
+                                onClick={() => setRevokeConfirm(invite)}
                                 className="px-3 py-1.5 text-xs font-medium text-danger border border-danger/30 rounded-lg hover:bg-danger/10 transition-colors"
                               >
                                 Revoke
@@ -1704,6 +1920,26 @@ export default function AdminPage() {
                 </TBody>
               </Table>
             </TableCard>
+
+            <ConfirmDialog
+              open={revokeConfirm !== null}
+              onCancel={() => setRevokeConfirm(null)}
+              onConfirm={() => {
+                const token = revokeConfirm?.token;
+                setRevokeConfirm(null);
+                if (token) revokeInvite(token);
+              }}
+              title="Revoke invite?"
+              confirmLabel="Revoke"
+              message={
+                <>
+                  The invite for{" "}
+                  <span className="font-medium text-foreground">{revokeConfirm?.email}</span> will
+                  stop working immediately.
+                </>
+              }
+              icon={<TrashIcon size={24} stroke="var(--danger)" />}
+            />
           </div>
         )}
       </div>

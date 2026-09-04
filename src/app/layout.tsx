@@ -22,10 +22,10 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "HRMS Auto Check-in",
-    template: "%s · HRMS Auto Check-in",
+    default: "ShiftSync",
+    template: "%s · ShiftSync",
   },
-  description: "Automated HRMS check-in/check-out scheduler",
+  description: "ShiftSync — Check in/out automated attendance scheduler",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/favicon.png", sizes: "32x32" }],
     apple: "/favicon.png",

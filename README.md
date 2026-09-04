@@ -1,6 +1,6 @@
-# HRMS Auto Check-in & Check-out
+# ShiftSync
 
-Automated HRMS attendance system that performs check-in and check-out at random times within a user-configured window. Built with Next.js, MongoDB, and deployed on Vercel with an external cron service.
+Automated attendance system that performs check-in and check-out at random times within a user-configured window. Built with Next.js, MongoDB, and deployed on Vercel with an external cron service.
 
 ## Features
 
@@ -250,7 +250,7 @@ ENCRYPTION_KEY=<random-64-char-hex-for-aes256>
 CRON_SECRET=<random-64-char-hex>
 SMTP_USER=your-gmail@gmail.com
 SMTP_PASS=your-gmail-app-password
-SMTP_FROM=HRMS Auto <your-gmail@gmail.com>
+SMTP_FROM=ShiftSync <your-gmail@gmail.com>
 ```
 
 Generate secrets:

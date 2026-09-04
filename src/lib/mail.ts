@@ -72,7 +72,7 @@ export async function sendFailureEmail(
 
   await send(
     to,
-    `[HRMS] ${actionLabel} Failed`,
+    `[ShiftSync] ${actionLabel} Failed`,
     SHELL(`
       <h2 style="color: #ef4444; margin-bottom: 16px;">${actionLabel} Failed</h2>
       <p style="color: #374151; line-height: 1.6;">
@@ -101,7 +101,7 @@ export async function sendSkipEmail(
 
   await send(
     to,
-    `[HRMS] ${actionLabel} Not Needed`,
+    `[ShiftSync] ${actionLabel} Not Needed`,
     SHELL(`
       <h2 style="color: #3b82f6; margin-bottom: 16px;">${actionLabel} Skipped</h2>
       <p style="color: #374151; line-height: 1.6;">
@@ -120,7 +120,7 @@ export async function sendSkipEmail(
 export async function sendResetLinkEmail(to: string, resetUrl: string) {
   await send(
     to,
-    "[HRMS] Password Reset",
+    "[ShiftSync] Password Reset",
     SHELL(`
       <h2 style="color: #3b82f6; margin-bottom: 16px;">Password Reset</h2>
       <p style="color: #374151; line-height: 1.6;">Click the button below to reset your password:</p>
@@ -144,7 +144,7 @@ export async function sendAccessRequestEmail(
 
   await send(
     adminEmails.join(", "),
-    "[HRMS] Access request",
+    "[ShiftSync] Access request",
     SHELL(`
       <h2 style="color: #3b82f6; margin-bottom: 16px;">Someone asked for an invite</h2>
       <p style="color: #374151; line-height: 1.6;">
@@ -164,11 +164,11 @@ export async function sendInviteEmail(
 ) {
   await send(
     to,
-    "[HRMS] You're invited to HRMS Auto Check-in",
+    "[ShiftSync] You're invited to ShiftSync",
     SHELL(`
       <h2 style="color: #3b82f6; margin-bottom: 16px;">You're invited</h2>
       <p style="color: #374151; line-height: 1.6;">
-        <strong>${esc(invitedByName)}</strong> has invited you to create an account on HRMS Auto Check-in.
+        <strong>${esc(invitedByName)}</strong> has invited you to create an account on ShiftSync.
       </p>
       <div style="margin: 24px 0; text-align: center;">
         <a href="${esc(inviteUrl)}" style="display: inline-block; background: #3b82f6; color: #ffffff; font-weight: 600; font-size: 14px; padding: 12px 32px; border-radius: 8px; text-decoration: none;">
@@ -201,7 +201,7 @@ export async function sendLeaveNotificationEmail(
 ) {
   await send(
     to,
-    `[HRMS] ${typeLabel} — ${formatIstDate(date)}`,
+    `[ShiftSync] ${typeLabel} — ${formatIstDate(date)}`,
     SHELL(`
       <h2 style="color: #3b82f6; margin-bottom: 4px;">${esc(typeLabel)}</h2>
       <p style="color: #374151; line-height: 1.6; margin-top: 0;">

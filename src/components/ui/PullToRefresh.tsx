@@ -1,15 +1,77 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { RefreshIcon } from "@/components/ui/icons";
 
 const THRESHOLD = 68;
 const MAX_PULL = 104;
 
+type RefreshFn = () => void | Promise<void>;
+
+type PullRefreshApi = {
+  register: (fn: RefreshFn | null) => void;
+  setBlocked: (blocked: boolean) => void;
+  getHandler: () => RefreshFn | null;
+  isBlocked: () => boolean;
+};
+
+const PullRefreshContext = createContext<PullRefreshApi | null>(null);
+
+export function PullRefreshProvider({ children }: { children: React.ReactNode }) {
+  const handlerRef = useRef<RefreshFn | null>(null);
+  const blockedRef = useRef(false);
+
+  const api = useMemo<PullRefreshApi>(
+    () => ({
+      register: (fn) => {
+        handlerRef.current = fn;
+      },
+      setBlocked: (blocked) => {
+        blockedRef.current = blocked;
+      },
+      getHandler: () => handlerRef.current,
+      isBlocked: () => blockedRef.current,
+    }),
+    []
+  );
+
+  return <PullRefreshContext.Provider value={api}>{children}</PullRefreshContext.Provider>;
+}
+
+/** Register a soft refresh for the current page (replaces full reload). */
+export function useRegisterPullRefresh(fn: RefreshFn, deps: unknown[] = []) {
+  const api = useContext(PullRefreshContext);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stable = useCallback(fn, deps);
+
+  useEffect(() => {
+    if (!api) return;
+    api.register(stable);
+    return () => api.register(null);
+  }, [api, stable]);
+}
+
+/** Block pull-to-refresh while a form has unsaved edits. */
+export function useBlockPullRefresh(blocked: boolean) {
+  const api = useContext(PullRefreshContext);
+  useEffect(() => {
+    if (!api) return;
+    api.setBlocked(blocked);
+    return () => api.setBlocked(false);
+  }, [api, blocked]);
+}
+
 /**
  * Restores swipe-down reload inside app-shell scrollers.
- * Native pull-to-refresh cannot fire when body scroll is locked
- * (`overflow: hidden` + nested overflow), so we handle the gesture here.
+ * Prefers a page-registered soft refresh; falls back to full reload.
  */
 export default function PullToRefresh({
   children,
@@ -18,6 +80,7 @@ export default function PullToRefresh({
   children: React.ReactNode;
   className?: string;
 }) {
+  const api = useContext(PullRefreshContext);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
   const pulling = useRef(false);
@@ -46,6 +109,11 @@ export default function PullToRefresh({
 
     const onMove = (e: TouchEvent) => {
       if (!pulling.current || refreshing) return;
+      if (api?.isBlocked()) {
+        pulling.current = false;
+        setPull(0);
+        return;
+      }
       if (el.scrollTop > 0) {
         pulling.current = false;
         setPull(0);
@@ -67,12 +135,25 @@ export default function PullToRefresh({
       if (!pulling.current) return;
       pulling.current = false;
 
+      if (api?.isBlocked()) {
+        setPull(0);
+        return;
+      }
+
       if (offsetRef.current >= THRESHOLD) {
         setRefreshing(true);
         setPull(THRESHOLD);
-        window.setTimeout(() => {
-          window.location.reload();
-        }, 120);
+        const run = async () => {
+          try {
+            const handler = api?.getHandler();
+            if (handler) await handler();
+            else window.location.reload();
+          } finally {
+            setRefreshing(false);
+            setPull(0);
+          }
+        };
+        void run();
         return;
       }
       setPull(0);
@@ -88,7 +169,7 @@ export default function PullToRefresh({
       el.removeEventListener("touchend", onEnd);
       el.removeEventListener("touchcancel", onEnd);
     };
-  }, [refreshing]);
+  }, [api, refreshing]);
 
   const visible = offset > 10 || refreshing;
   const armed = offset >= THRESHOLD || refreshing;
