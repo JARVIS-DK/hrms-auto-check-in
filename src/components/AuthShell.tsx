@@ -14,8 +14,8 @@ export default function AuthShell({
   footer?: React.ReactNode;
 }) {
   return (
-    <PullToRefresh className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex items-center justify-center p-4">
-      <div className="w-full max-w-sm 2xl:max-w-md animate-[slideUp_320ms_ease-out]">
+    <PullToRefresh className="min-h-dvh overflow-y-auto overscroll-contain flex flex-col justify-center p-4">
+      <div className="w-full max-w-sm 2xl:max-w-md mx-auto my-auto animate-[slideUp_320ms_ease-out]">
         <div className="flex flex-col items-center mb-7 text-center animate-[brandIn_420ms_ease-out]">
           <div className="relative mb-5">
             <div

@@ -1226,32 +1226,34 @@ export default function AdminPage() {
                   <label className="block text-xs font-medium text-muted mb-1.5">Date</label>
                   <DateInput value={logsDate} onChange={setLogsDate} />
                 </div>
-                <div>
-                  <label htmlFor="admin-action" className="block text-xs font-medium text-muted mb-1.5">Action</label>
-                  <Select
-                    id="admin-action"
-                    value={logsAction}
-                    onChange={setLogsAction}
-                    options={[
-                      { value: "", label: "All" },
-                      { value: "CHECK_IN", label: "Check-in" },
-                      { value: "CHECK_OUT", label: "Check-out" },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="admin-status" className="block text-xs font-medium text-muted mb-1.5">Status</label>
-                  <Select
-                    id="admin-status"
-                    value={logsStatus}
-                    onChange={setLogsStatus}
-                    options={[
-                      { value: "", label: "All" },
-                      { value: "SUCCESS", label: "Success" },
-                      { value: "FAILED", label: "Failed" },
-                      { value: "SKIPPED", label: "Skipped" },
-                    ]}
-                  />
+                <div className="w-full grid grid-cols-2 gap-3 sm:contents">
+                  <div className="min-w-0 sm:min-w-[10rem]">
+                    <label htmlFor="admin-action" className="block text-xs font-medium text-muted mb-1.5">Action</label>
+                    <Select
+                      id="admin-action"
+                      value={logsAction}
+                      onChange={setLogsAction}
+                      options={[
+                        { value: "", label: "All" },
+                        { value: "CHECK_IN", label: "Check-in" },
+                        { value: "CHECK_OUT", label: "Check-out" },
+                      ]}
+                    />
+                  </div>
+                  <div className="min-w-0 sm:min-w-[10rem]">
+                    <label htmlFor="admin-status" className="block text-xs font-medium text-muted mb-1.5">Status</label>
+                    <Select
+                      id="admin-status"
+                      value={logsStatus}
+                      onChange={setLogsStatus}
+                      options={[
+                        { value: "", label: "All" },
+                        { value: "SUCCESS", label: "Success" },
+                        { value: "FAILED", label: "Failed" },
+                        { value: "SKIPPED", label: "Skipped" },
+                      ]}
+                    />
+                  </div>
                 </div>
                 <button
                   onClick={() => {
@@ -1400,13 +1402,15 @@ export default function AdminPage() {
                   <label className="block text-xs font-medium text-muted mb-1.5">User</label>
                   <UserSelect value={leavesUserId} onChange={setLeavesUserId} users={users} />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1.5">Start Date</label>
-                  <DateInput value={leavesStartDate} onChange={setLeavesStartDate} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1.5">End Date</label>
-                  <DateInput value={leavesEndDate} onChange={setLeavesEndDate} />
+                <div className="w-full grid grid-cols-2 gap-3 sm:contents">
+                  <div className="min-w-0">
+                    <label className="block text-xs font-medium text-muted mb-1.5">Start Date</label>
+                    <DateInput value={leavesStartDate} onChange={setLeavesStartDate} />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs font-medium text-muted mb-1.5">End Date</label>
+                    <DateInput value={leavesEndDate} onChange={setLeavesEndDate} />
+                  </div>
                 </div>
                 <button
                   onClick={() => {
@@ -1507,32 +1511,34 @@ export default function AdminPage() {
                   <label className="block text-xs font-medium text-muted mb-1.5">User</label>
                   <UserSelect value={scheduledUserId} onChange={setScheduledUserId} users={users} />
                 </div>
-                <div>
-                  <label htmlFor="admin-action-2" className="block text-xs font-medium text-muted mb-1.5">Action</label>
-                  <Select
-                    id="admin-action-2"
-                    value={scheduledAction}
-                    onChange={setScheduledAction}
-                    options={[
-                      { value: "", label: "All" },
-                      { value: "checkin", label: "Check-in" },
-                      { value: "checkout", label: "Check-out" },
-                      { value: "leave_notify", label: "Leave Notify" },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="admin-status-2" className="block text-xs font-medium text-muted mb-1.5">Status</label>
-                  <Select
-                    id="admin-status-2"
-                    value={scheduledStatus}
-                    onChange={setScheduledStatus}
-                    options={[
-                      { value: "", label: "All" },
-                      { value: "pending", label: "Pending" },
-                      { value: "executed", label: "Executed" },
-                    ]}
-                  />
+                <div className="w-full grid grid-cols-2 gap-3 sm:contents">
+                  <div className="min-w-0 sm:min-w-[10rem]">
+                    <label htmlFor="admin-action-2" className="block text-xs font-medium text-muted mb-1.5">Action</label>
+                    <Select
+                      id="admin-action-2"
+                      value={scheduledAction}
+                      onChange={setScheduledAction}
+                      options={[
+                        { value: "", label: "All" },
+                        { value: "checkin", label: "Check-in" },
+                        { value: "checkout", label: "Check-out" },
+                        { value: "leave_notify", label: "Leave Notify" },
+                      ]}
+                    />
+                  </div>
+                  <div className="min-w-0 sm:min-w-[10rem]">
+                    <label htmlFor="admin-status-2" className="block text-xs font-medium text-muted mb-1.5">Status</label>
+                    <Select
+                      id="admin-status-2"
+                      value={scheduledStatus}
+                      onChange={setScheduledStatus}
+                      options={[
+                        { value: "", label: "All" },
+                        { value: "pending", label: "Pending" },
+                        { value: "executed", label: "Executed" },
+                      ]}
+                    />
+                  </div>
                 </div>
                 <button
                   onClick={() => {
@@ -1693,19 +1699,21 @@ export default function AdminPage() {
                     className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1.5">Date</label>
-                  <DateInput value={holidayDate} onChange={setHolidayDate} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1.5">
-                    End date <span className="text-muted/60">(optional)</span>
-                  </label>
-                  <DateInput
-                    value={holidayEndDate}
-                    onChange={setHolidayEndDate}
-                    min={holidayDate || undefined}
-                  />
+                <div className="w-full grid grid-cols-2 gap-3 sm:contents">
+                  <div className="min-w-0">
+                    <label className="block text-xs font-medium text-muted mb-1.5">Date</label>
+                    <DateInput value={holidayDate} onChange={setHolidayDate} />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs font-medium text-muted mb-1.5">
+                      End date <span className="text-muted/60">(optional)</span>
+                    </label>
+                    <DateInput
+                      value={holidayEndDate}
+                      onChange={setHolidayEndDate}
+                      min={holidayDate || undefined}
+                    />
+                  </div>
                 </div>
                 <button
                   type="submit"

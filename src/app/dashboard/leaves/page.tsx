@@ -339,7 +339,7 @@ export default function LeavesPage() {
         <div className="surface-3d rounded-2xl p-5">
           <h3 className="text-sm font-semibold mb-3">Add New Leave</h3>
           <form onSubmit={addLeave} className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-muted mb-1.5">From</label>
                 <DateInput
@@ -378,9 +378,10 @@ export default function LeavesPage() {
               <label className="block text-xs font-medium text-muted mb-1.5">
                 How much of the day are you off?
               </label>
-              <div className="space-y-2" role="radiogroup">
+              <div className="grid grid-cols-2 gap-2" role="radiogroup">
                 {TYPE_OPTIONS.map((option) => {
                   const selected = type === option.value;
+                  const isFullDay = option.value === "full";
                   return (
                     <button
                       key={option.value}
@@ -389,14 +390,12 @@ export default function LeavesPage() {
                       aria-checked={selected}
                       onClick={() => {
                         setType(option.value);
-                        // Custom times are meaningless on a full day — drop them
-                        // rather than silently keeping values the API will reject.
                         if (option.value === "full") {
                           setWindowStart("");
                           setWindowEnd("");
                         }
                       }}
-                      className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border text-left transition-colors ${
+                      className={`${isFullDay ? "col-span-2" : ""} flex items-center gap-3 px-3.5 py-3 rounded-xl border text-left transition-colors ${
                         selected ? "border-primary bg-primary/10" : "border-border hover:bg-background"
                       }`}
                     >

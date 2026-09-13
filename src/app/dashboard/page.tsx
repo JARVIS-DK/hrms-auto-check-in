@@ -391,7 +391,7 @@ export default function DashboardPage() {
               </Link>
             )}
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-row gap-3">
             <button
               onClick={() => setConfirmAction("IN")}
               disabled={checkinLoading || !settings.hasPassword}

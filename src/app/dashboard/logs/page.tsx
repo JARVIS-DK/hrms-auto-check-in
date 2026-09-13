@@ -124,32 +124,34 @@ export default function LogsPage() {
                 onChange={setFilterDate}
               />
             </div>
-            <div className="w-full sm:w-auto min-w-[10rem]">
-              <label htmlFor="logs-action" className="block text-xs font-medium text-muted mb-1.5">Action</label>
-              <Select
-                id="logs-action"
-                value={filterAction}
-                onChange={setFilterAction}
-                options={[
-                  { value: "", label: "All" },
-                  { value: "CHECK_IN", label: "Check-in" },
-                  { value: "CHECK_OUT", label: "Check-out" },
-                ]}
-              />
-            </div>
-            <div className="w-full sm:w-auto min-w-[10rem]">
-              <label htmlFor="logs-status" className="block text-xs font-medium text-muted mb-1.5">Status</label>
-              <Select
-                id="logs-status"
-                value={filterStatus}
-                onChange={setFilterStatus}
-                options={[
-                  { value: "", label: "All" },
-                  { value: "SUCCESS", label: "Success" },
-                  { value: "FAILED", label: "Failed" },
-                  { value: "SKIPPED", label: "Skipped" },
-                ]}
-              />
+            <div className="w-full grid grid-cols-2 gap-3 sm:contents">
+              <div className="min-w-0 sm:min-w-[10rem]">
+                <label htmlFor="logs-action" className="block text-xs font-medium text-muted mb-1.5">Action</label>
+                <Select
+                  id="logs-action"
+                  value={filterAction}
+                  onChange={setFilterAction}
+                  options={[
+                    { value: "", label: "All" },
+                    { value: "CHECK_IN", label: "Check-in" },
+                    { value: "CHECK_OUT", label: "Check-out" },
+                  ]}
+                />
+              </div>
+              <div className="min-w-0 sm:min-w-[10rem]">
+                <label htmlFor="logs-status" className="block text-xs font-medium text-muted mb-1.5">Status</label>
+                <Select
+                  id="logs-status"
+                  value={filterStatus}
+                  onChange={setFilterStatus}
+                  options={[
+                    { value: "", label: "All" },
+                    { value: "SUCCESS", label: "Success" },
+                    { value: "FAILED", label: "Failed" },
+                    { value: "SKIPPED", label: "Skipped" },
+                  ]}
+                />
+              </div>
             </div>
             <button
               onClick={applyFilters}
