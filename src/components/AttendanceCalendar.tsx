@@ -49,7 +49,7 @@ function mLabel(d: Date): string {
   return d.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 }
 
-type DayKind = "present-full" | "present-partial" | "absent" | "leave" | "holiday" | "weekend" | "future" | "today-empty";
+type DayKind = "present-full" | "present-partial" | "absent" | "leave" | "half-leave" | "holiday" | "weekend" | "future" | "today-empty";
 
 function classifyDay(
   dayData: DayData | undefined,
@@ -60,6 +60,7 @@ function classifyDay(
   isFuture: boolean,
 ): DayKind {
   if (holiday) return "holiday";
+  if (leave && leave !== "full" && dayData?.checkin) return "half-leave";
   if (leave) return "leave";
   if (isFuture) return "future";
   if (dayData?.checkin && dayData?.checkout) return "present-full";
@@ -74,6 +75,7 @@ const KIND_CELL_STYLES: Record<DayKind, string> = {
   "present-partial": "bg-[#0b2920]/60 border-[#1a5c42]/60",
   absent:            "bg-[#2a0f12]/50 border-[#5c1a22]/40",
   leave:             "bg-[#2a2008]/50 border-[#5c4a1a]/40",
+  "half-leave":      "bg-[#1a2a14] border-[#3d6a2a] shadow-[inset_0_1px_0_rgba(18,232,122,0.06)]",
   holiday:           "bg-[#0c1f33]/70 border-[#1a4470]/50",
   weekend:           "border-transparent",
   future:            "border-transparent opacity-25",
@@ -94,20 +96,22 @@ interface DayInfo {
 function DayDetailContent({ info, dateLabel, onClose }: { info: DayInfo; dateLabel: string; onClose: () => void }) {
   const statusColor =
     info.kind === "present-full" || info.kind === "present-partial" ? "text-success"
-      : info.kind === "absent" ? "text-danger"
-        : info.kind === "leave" ? "text-warning"
-          : info.kind === "holiday" ? "text-primary"
-            : "text-muted";
+      : info.kind === "half-leave" ? "text-success"
+        : info.kind === "absent" ? "text-danger"
+          : info.kind === "leave" ? "text-warning"
+            : info.kind === "holiday" ? "text-primary"
+              : "text-muted";
 
   const statusLabel =
     info.kind === "present-full" ? "Present"
       : info.kind === "present-partial" ? "Checked in"
-        : info.kind === "absent" ? "Absent"
-          : info.kind === "leave" ? "On leave"
-            : info.kind === "holiday" ? "Holiday"
-              : info.kind === "weekend" ? "Weekend"
-                : info.kind === "future" ? "Upcoming"
-                  : "Today";
+        : info.kind === "half-leave" ? "Half-day leave"
+          : info.kind === "absent" ? "Absent"
+            : info.kind === "leave" ? "On leave"
+              : info.kind === "holiday" ? "Holiday"
+                : info.kind === "weekend" ? "Weekend"
+                  : info.kind === "future" ? "Upcoming"
+                    : "Today";
 
   return (
     <div className="space-y-3.5 overflow-hidden">
@@ -135,7 +139,7 @@ function DayDetailContent({ info, dateLabel, onClose }: { info: DayInfo; dateLab
             <p className="text-sm font-semibold text-primary mt-0.5">{info.holiday}</p>
           </div>
         </div>
-      ) : info.leave ? (
+      ) : info.leave && info.kind === "leave" ? (
         <div className="flex items-center gap-3 py-3.5 px-3 rounded-xl bg-warning/[0.06] border border-warning/12">
           <span className="w-9 h-9 rounded-lg bg-warning/12 flex items-center justify-center shrink-0">
             <CalendarIcon size={18} stroke="var(--warning)" />
@@ -151,8 +155,17 @@ function DayDetailContent({ info, dateLabel, onClose }: { info: DayInfo; dateLab
             </p>
           </div>
         </div>
-      ) : info.dayData?.checkin ? (
+      ) : (info.dayData?.checkin || info.kind === "half-leave") ? (
         <div className="space-y-2">
+          {/* Half-day leave banner */}
+          {info.leave && info.kind === "half-leave" && (
+            <div className="flex items-center gap-2.5 py-2.5 px-3 rounded-xl bg-warning/[0.06] border border-warning/12">
+              <span className="w-[6px] h-[6px] rounded-full bg-warning shrink-0" />
+              <p className="text-xs font-medium text-warning">
+                {info.leave === "first_half" ? "First-half leave" : "Second-half leave"}
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-success/[0.05] border border-success/10">
               <span className="w-9 h-9 rounded-lg bg-success/12 flex items-center justify-center">
@@ -160,10 +173,10 @@ function DayDetailContent({ info, dateLabel, onClose }: { info: DayInfo; dateLab
               </span>
               <p className="text-[9px] text-muted/50 uppercase tracking-widest font-semibold">Check-in</p>
               <p className="text-sm font-bold tabular-nums leading-none">
-                {formatHour(info.dayData.checkin)}
+                {info.dayData?.checkin ? formatHour(info.dayData.checkin) : "—"}
               </p>
             </div>
-            {info.dayData.checkout ? (
+            {info.dayData?.checkout ? (
               <div className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-danger/[0.05] border border-danger/10">
                 <span className="w-9 h-9 rounded-lg bg-danger/12 flex items-center justify-center">
                   <CheckOutIcon size={22} />
@@ -182,7 +195,7 @@ function DayDetailContent({ info, dateLabel, onClose }: { info: DayInfo; dateLab
               </div>
             )}
           </div>
-          {info.dayData.workingHours && (
+          {info.dayData?.workingHours && (
             <div className="flex items-center gap-3 py-3 px-3 rounded-xl bg-primary/[0.06] border border-primary/12">
               <span className="w-9 h-9 rounded-lg bg-primary/12 flex items-center justify-center shrink-0">
                 <ClockIcon size={18} stroke="var(--primary)" />
@@ -416,16 +429,22 @@ export default function AttendanceCalendar({ fetchUrl }: AttendanceCalendarProps
                             : "text-foreground font-semibold"
                     }`}>{day}</span>
                     {hasHours && (
-                      <span className="text-[8px] sm:text-[10px] font-semibold tabular-nums leading-none mt-[3px] sm:mt-1 text-success">
-                        {formatWorkingHours(info.dayData!.workingHours!)}
+                      <span className="flex items-center gap-[3px] mt-[3px] sm:mt-1">
+                        <span className="text-[8px] sm:text-[10px] font-semibold tabular-nums leading-none text-success">
+                          {formatWorkingHours(info.dayData!.workingHours!)}
+                        </span>
+                        {info.kind === "half-leave" && (
+                          <span className="w-[4px] h-[4px] sm:w-[5px] sm:h-[5px] rounded-full bg-warning shrink-0" />
+                        )}
                       </span>
                     )}
                     {!hasHours && info.kind !== "weekend" && info.kind !== "future" && info.kind !== "today-empty" && (
                       <span className={`w-[5px] h-[5px] sm:w-1.5 sm:h-1.5 rounded-full mt-[3px] sm:mt-1.5 ${
                         info.kind === "present-partial" ? "bg-success/70"
-                          : info.kind === "leave" ? "bg-warning"
-                            : info.kind === "holiday" ? "bg-primary"
-                              : info.kind === "absent" ? "bg-danger/70" : ""
+                          : info.kind === "half-leave" ? "bg-warning"
+                            : info.kind === "leave" ? "bg-warning"
+                              : info.kind === "holiday" ? "bg-primary"
+                                : info.kind === "absent" ? "bg-danger/70" : ""
                       }`} />
                     )}
                   </button>
@@ -438,6 +457,7 @@ export default function AttendanceCalendar({ fetchUrl }: AttendanceCalendarProps
                 { color: "bg-danger", label: "Absent" },
                 { color: "bg-warning", label: "Leave" },
                 { color: "bg-primary", label: "Holiday" },
+                { color: "bg-success border border-warning/60", label: "Half-day" },
               ].map((l) => (
                 <span key={l.label} className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted/70 font-medium uppercase tracking-wide">
                   <span className={`w-[6px] h-[6px] rounded-full ${l.color}`} />
