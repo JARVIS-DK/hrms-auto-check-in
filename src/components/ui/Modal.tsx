@@ -97,7 +97,7 @@ export default function Modal({ open, onClose, title, children, maxWidth = "xs" 
         onClick={(e) => e.stopPropagation()}
         className={`relative surface-elevated rounded-2xl p-6 w-full ${WIDTHS[maxWidth]} animate-[scaleIn_150ms_ease-out] max-h-[min(85dvh,100dvh-2rem)] flex flex-col overflow-hidden`}
       >
-        <div className="min-h-0 overflow-y-auto overscroll-contain">{children}</div>
+        <div className="min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">{children}</div>
       </div>
     </div>
   );

@@ -112,16 +112,16 @@ function DayDetailContent({ info, dateLabel, onClose }: { info: DayInfo; dateLab
                   : "Today";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5 overflow-hidden">
       {/* Header with close button */}
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="font-semibold text-sm">{dateLabel}</p>
           <p className={`text-xs mt-0.5 font-medium ${statusColor}`}>{statusLabel}</p>
         </div>
         <button
           onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-muted hover:text-foreground hover:bg-white/[0.06] transition-colors shrink-0 -mr-1 -mt-0.5"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-muted hover:text-foreground hover:bg-white/[0.06] transition-colors shrink-0 -mr-2 -mt-1"
           aria-label="Close"
         >
           <CloseIcon size={16} />
@@ -129,9 +129,9 @@ function DayDetailContent({ info, dateLabel, onClose }: { info: DayInfo; dateLab
       </div>
 
       {info.holiday ? (
-        <div className="flex items-center gap-3.5 px-4 py-4 rounded-2xl bg-primary/[0.06] border border-primary/12">
-          <span className="w-10 h-10 rounded-xl bg-primary/12 flex items-center justify-center shrink-0">
-            <HolidayIcon size={20} stroke="var(--primary)" />
+        <div className="flex items-center gap-3 py-3.5 px-3 rounded-xl bg-primary/[0.06] border border-primary/12">
+          <span className="w-9 h-9 rounded-lg bg-primary/12 flex items-center justify-center shrink-0">
+            <HolidayIcon size={18} stroke="var(--primary)" />
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-muted/50 uppercase tracking-widest font-semibold">Holiday</p>
@@ -139,9 +139,9 @@ function DayDetailContent({ info, dateLabel, onClose }: { info: DayInfo; dateLab
           </div>
         </div>
       ) : info.leave ? (
-        <div className="flex items-center gap-3.5 px-4 py-4 rounded-2xl bg-warning/[0.06] border border-warning/12">
-          <span className="w-10 h-10 rounded-xl bg-warning/12 flex items-center justify-center shrink-0">
-            <CalendarIcon size={20} stroke="var(--warning)" />
+        <div className="flex items-center gap-3 py-3.5 px-3 rounded-xl bg-warning/[0.06] border border-warning/12">
+          <span className="w-9 h-9 rounded-lg bg-warning/12 flex items-center justify-center shrink-0">
+            <CalendarIcon size={18} stroke="var(--warning)" />
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-muted/50 uppercase tracking-widest font-semibold">Leave</p>
@@ -155,51 +155,47 @@ function DayDetailContent({ info, dateLabel, onClose }: { info: DayInfo; dateLab
           </div>
         </div>
       ) : info.dayData?.checkin ? (
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {/* Check-in and check-out side by side */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="flex flex-col items-center gap-2 px-3 py-3.5 rounded-2xl bg-success/[0.05] border border-success/10">
-              <span className="w-10 h-10 rounded-xl bg-success/12 flex items-center justify-center shrink-0">
-                <CheckInIcon size={24} />
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-success/[0.05] border border-success/10">
+              <span className="w-9 h-9 rounded-lg bg-success/12 flex items-center justify-center">
+                <CheckInIcon size={22} />
               </span>
-              <div className="text-center">
-                <p className="text-[10px] text-muted/50 uppercase tracking-widest font-semibold">Check-in</p>
-                <p className="text-[15px] font-bold tabular-nums mt-0.5">
-                  {formatHour(info.dayData.checkin)}
-                </p>
-              </div>
+              <p className="text-[9px] text-muted/50 uppercase tracking-widest font-semibold">Check-in</p>
+              <p className="text-sm font-bold tabular-nums leading-none">
+                {formatHour(info.dayData.checkin)}
+              </p>
             </div>
 
             {info.dayData.checkout ? (
-              <div className="flex flex-col items-center gap-2 px-3 py-3.5 rounded-2xl bg-danger/[0.05] border border-danger/10">
-                <span className="w-10 h-10 rounded-xl bg-danger/12 flex items-center justify-center shrink-0">
-                  <CheckOutIcon size={24} />
+              <div className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-danger/[0.05] border border-danger/10">
+                <span className="w-9 h-9 rounded-lg bg-danger/12 flex items-center justify-center">
+                  <CheckOutIcon size={22} />
                 </span>
-                <div className="text-center">
-                  <p className="text-[10px] text-muted/50 uppercase tracking-widest font-semibold">Check-out</p>
-                  <p className="text-[15px] font-bold tabular-nums mt-0.5">
-                    {formatHour(info.dayData.checkout)}
-                  </p>
-                </div>
+                <p className="text-[9px] text-muted/50 uppercase tracking-widest font-semibold">Check-out</p>
+                <p className="text-sm font-bold tabular-nums leading-none">
+                  {formatHour(info.dayData.checkout)}
+                </p>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-2 px-3 py-3.5 rounded-2xl bg-muted/[0.04] border border-border/25">
-                <span className="w-10 h-10 rounded-xl bg-muted/8 flex items-center justify-center shrink-0">
-                  <ClockIcon size={20} stroke="var(--muted)" />
+              <div className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-muted/[0.04] border border-border/25">
+                <span className="w-9 h-9 rounded-lg bg-muted/8 flex items-center justify-center">
+                  <ClockIcon size={18} stroke="var(--muted)" />
                 </span>
-                <p className="text-[11px] text-muted text-center">No check-out</p>
+                <p className="text-[10px] text-muted">No check-out</p>
               </div>
             )}
           </div>
 
           {info.dayData.workingHours && (
-            <div className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-primary/[0.06] border border-primary/12">
-              <span className="w-10 h-10 rounded-xl bg-primary/12 flex items-center justify-center shrink-0">
-                <ClockIcon size={20} stroke="var(--primary)" />
+            <div className="flex items-center gap-3 py-3 px-3 rounded-xl bg-primary/[0.06] border border-primary/12">
+              <span className="w-9 h-9 rounded-lg bg-primary/12 flex items-center justify-center shrink-0">
+                <ClockIcon size={18} stroke="var(--primary)" />
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-muted/50 uppercase tracking-widest font-semibold">Working hours</p>
-                <p className="text-xl font-bold text-primary tabular-nums mt-0.5 leading-none">
+                <p className="text-[9px] text-muted/50 uppercase tracking-widest font-semibold">Working hours</p>
+                <p className="text-lg font-bold text-primary tabular-nums mt-0.5 leading-none">
                   {formatWorkingHours(info.dayData.workingHours)}
                 </p>
               </div>
@@ -207,28 +203,25 @@ function DayDetailContent({ info, dateLabel, onClose }: { info: DayInfo; dateLab
           )}
         </div>
       ) : info.isWeekend ? (
-        <div className="flex items-center gap-3.5 px-4 py-4 rounded-2xl bg-muted/[0.04] border border-border/25">
-          <span className="w-10 h-10 rounded-xl bg-muted/8 flex items-center justify-center shrink-0">
-            <CalendarIcon size={20} stroke="var(--muted)" />
+        <div className="flex items-center gap-3 py-3.5 px-3 rounded-xl bg-muted/[0.04] border border-border/25">
+          <span className="w-9 h-9 rounded-lg bg-muted/8 flex items-center justify-center shrink-0">
+            <CalendarIcon size={18} stroke="var(--muted)" />
           </span>
-          <p className="text-sm text-muted">Weekend — no attendance expected</p>
+          <p className="text-sm text-muted">Weekend</p>
         </div>
       ) : info.isFuture ? (
-        <div className="flex items-center gap-3.5 px-4 py-4 rounded-2xl bg-muted/[0.04] border border-border/25">
-          <span className="w-10 h-10 rounded-xl bg-muted/8 flex items-center justify-center shrink-0">
-            <ClockIcon size={20} stroke="var(--muted)" />
+        <div className="flex items-center gap-3 py-3.5 px-3 rounded-xl bg-muted/[0.04] border border-border/25">
+          <span className="w-9 h-9 rounded-lg bg-muted/8 flex items-center justify-center shrink-0">
+            <ClockIcon size={18} stroke="var(--muted)" />
           </span>
-          <p className="text-sm text-muted">Upcoming day</p>
+          <p className="text-sm text-muted">Upcoming</p>
         </div>
       ) : (
-        <div className="flex items-center gap-3.5 px-4 py-4 rounded-2xl bg-danger/[0.06] border border-danger/12">
-          <span className="w-10 h-10 rounded-xl bg-danger/12 flex items-center justify-center shrink-0">
-            <CloseIcon size={20} stroke="var(--danger)" />
+        <div className="flex items-center gap-3 py-3.5 px-3 rounded-xl bg-danger/[0.06] border border-danger/12">
+          <span className="w-9 h-9 rounded-lg bg-danger/12 flex items-center justify-center shrink-0">
+            <CloseIcon size={18} stroke="var(--danger)" />
           </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-muted/50 uppercase tracking-widest font-semibold">Status</p>
-            <p className="text-sm font-semibold text-danger mt-0.5">No attendance recorded</p>
-          </div>
+          <p className="text-sm font-medium text-danger">No attendance recorded</p>
         </div>
       )}
     </div>
