@@ -31,7 +31,7 @@ const NAV_ITEMS = [
   {
     href: "/dashboard/attendance",
     label: "Attendance",
-    short: "Calendar",
+    short: "Attendance",
     icon: CalendarCheckIcon,
   },
   {
