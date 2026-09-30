@@ -38,8 +38,10 @@ import {
   LockIcon,
 } from "@/components/ui/icons";
 import UserManageDialog from "@/components/admin/UserManageDialog";
+import AttendanceCalendar from "@/components/AttendanceCalendar";
+import { CalendarCheckIcon } from "@/components/ui/icons";
 
-type Tab = "users" | "logs" | "leaves" | "scheduled" | "holidays" | "invites";
+type Tab = "users" | "logs" | "leaves" | "scheduled" | "holidays" | "invites" | "attendance";
 
 // Same wording the user sees on their own Leaves page.
 const LEAVE_TYPE_LABELS: Record<string, string> = {
@@ -274,6 +276,9 @@ export default function AdminPage() {
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
 
+  // Attendance state
+  const [attendanceUserId, setAttendanceUserId] = useState("");
+
   // Logs state
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [logsPage, setLogsPage] = useState(1);
@@ -495,6 +500,7 @@ export default function AdminPage() {
           fetchUsers();
           fetchGlobalDefaults();
         },
+        attendance: () => { setLoading(false); },
         logs: () => fetchLogs(logsPage),
         leaves: () => fetchLeaves(),
         scheduled: () => fetchScheduled(scheduledPage),
@@ -799,9 +805,10 @@ export default function AdminPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 p-1 bg-input/80 border border-border rounded-2xl">
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-1 p-1 bg-input/80 border border-border rounded-2xl">
           {([
             { id: "users", label: "Users", icon: <UsersIcon size={16} /> },
+            { id: "attendance", label: "Attendance", icon: <CalendarCheckIcon size={16} /> },
             { id: "logs", label: "Logs", icon: <ActivityIcon size={16} /> },
             { id: "leaves", label: "Leaves", icon: <CalendarIcon size={16} /> },
             { id: "scheduled", label: "Scheduled", icon: <ClockIcon size={16} /> },
@@ -828,6 +835,26 @@ export default function AdminPage() {
         )}
 
         {/* Tab Content */}
+        {!tabError && activeTab === "attendance" && (
+          <div className="space-y-4">
+            <div className="surface-3d rounded-2xl p-4">
+              <label className="block text-xs font-medium text-muted mb-1.5">Select user</label>
+              <UserSelect value={attendanceUserId} onChange={setAttendanceUserId} users={users} />
+            </div>
+            {attendanceUserId ? (
+              <AttendanceCalendar
+                key={attendanceUserId}
+                fetchUrl={`/api/admin/attendance?userId=${attendanceUserId}`}
+              />
+            ) : (
+              <div className="surface-3d rounded-2xl p-8 text-center">
+                <CalendarCheckIcon size={24} stroke="var(--muted)" className="mx-auto mb-2 opacity-60" />
+                <p className="text-sm text-muted">Select a user to view their attendance calendar</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {!tabError && activeTab === "users" && (
           <div className="space-y-4">
             {/* Snapshot counts */}
