@@ -11,6 +11,7 @@ import {
   CalendarIcon,
   ActivityIcon,
   ShieldIcon,
+  CalendarCheckIcon,
 } from "@/components/ui/icons";
 import PullToRefresh, { PullRefreshProvider } from "@/components/ui/PullToRefresh";
 
@@ -26,6 +27,12 @@ const NAV_ITEMS = [
     label: "Settings",
     short: "Settings",
     icon: SettingsIcon,
+  },
+  {
+    href: "/dashboard/attendance",
+    label: "Attendance",
+    short: "Calendar",
+    icon: CalendarCheckIcon,
   },
   {
     href: "/dashboard/leaves",
